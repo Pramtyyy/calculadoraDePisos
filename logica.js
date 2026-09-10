@@ -1,7 +1,8 @@
-function Piso(nome, bitola, tonalidade, altura, largura, cor, textura, resistencia, caixa, pecasPorCaixa, preco, estoque, pecasAbertas) {
+function Piso(nome, bitola, tonalidade, fotos, altura, largura, cor, textura, resistencia, caixa, pecasPorCaixa, preco, estoque, pecasAbertas) {
     this.nome = nome;
     this.bitola = bitola;
     this.tonalidade = tonalidade;
+    this.fotos = fotos;
     this.altura = altura;
     this.largura = largura;
     this.cor = cor;
@@ -22,8 +23,10 @@ const listaPisos = document.getElementById('listaPisos');
 const fecharFormulario = document.getElementById('fecharFormulario');
 const limparPisos = document.getElementById('limparPisos');
 const abrirOrcamento = document.getElementById('abrirOrcamento');
+const buscaPisos = document.getElementById('buscaPisos');
 const modalDetalhes = document.getElementById('modalDetalhes');
 const detalhesPiso = document.getElementById('detalhesPiso');
+const galeriaDetalhes = document.getElementById('galeriaDetalhes');
 const fecharDetalhes = document.getElementById('fecharDetalhes');
 const editarPiso = document.getElementById('editarPiso');
 const venderPiso = document.getElementById('venderPiso');
@@ -79,6 +82,7 @@ listaPisos.addEventListener('click', function (event) {
             `Preço por m²: ${formatarMoeda(piso.preco)}`,
             `Estoque: ${piso.estoque ?? 0} caixas${Number(piso.pecasAbertas ?? 0) > 0 ? ` e ${piso.pecasAbertas} peças` : ''}`
         ].join('\n');
+        exibirGaleria(galeriaDetalhes, piso.fotos);
         venderPiso.disabled = obterTotalPecas(piso) <= 0;
     }
 });
@@ -88,12 +92,19 @@ function exibirPisos() {
     const pisos = obterPisos();
     limparPisos.disabled = pisos.length === 0;
 
+    const termo = buscaPisos.value.trim().toLocaleLowerCase();
     pisos.forEach(function (piso, index) {
+        const tamanho = `${piso.altura ?? ''}x${piso.largura ?? ''}`;
+        const textoBusca = `${piso.nome} ${piso.cor ?? ''} ${piso.altura ?? ''} ${piso.largura ?? ''} ${tamanho}`.toLocaleLowerCase();
+        if (termo && !textoBusca.includes(termo)) {
+            return;
+        }
         const item = document.createElement('li');
         item.dataset.index = index;
         const pecasAbertas = Number(piso.pecasAbertas ?? 0);
         const estoque = `${piso.estoque ?? 0} caixas${pecasAbertas > 0 ? ` e ${pecasAbertas} peças` : ''}`;
         item.textContent = `${piso.nome} - ${piso.bitola ?? '-'}/${piso.tonalidade ?? '-'} - ${formatarMoeda(piso.preco)}/m² - Estoque: ${estoque} `;
+        exibirGaleria(item, piso.fotos);
         const deletarButton = document.createElement('button');
         deletarButton.type = 'button';
         deletarButton.textContent = 'Deletar Piso';
@@ -105,6 +116,22 @@ function exibirPisos() {
         item.appendChild(deletarButton);
         listaPisos.appendChild(item);
     });
+}
+
+function exibirGaleria(container, fotos) {
+    if (!Array.isArray(fotos) || fotos.length === 0) {
+        return;
+    }
+
+    const galeria = document.createElement('div');
+    galeria.className = 'galeria';
+    fotos.forEach(function (foto) {
+        const imagem = document.createElement('img');
+        imagem.src = foto;
+        imagem.alt = 'Foto do piso';
+        galeria.appendChild(imagem);
+    });
+    container.appendChild(galeria);
 }
 
 fecharDetalhes.addEventListener('click', function () {
@@ -337,36 +364,64 @@ pisosForm.addEventListener('submit', function (event) {
     event.preventDefault();
 
     const dados = new FormData(pisosForm);
-    const piso = new Piso(
-        dados.get('nome'),
-        dados.get('bitola'),
-        dados.get('tonalidade'),
-        dados.get('altura'),
-        dados.get('largura'),
-        dados.get('cor'),
-        dados.get('textura'),
-        dados.get('resistencia'),
-        dados.get('caixa'),
-        dados.get('pecasPorCaixa'),
-        dados.get('preco'),
-        dados.get('estoque'),
-        dados.get('pecasAbertas')
-    );
-
     const pisos = obterPisos();
-    if (indicePisoEditando === null) {
-        pisos.push(piso);
-    } else {
-        pisos[indicePisoEditando] = piso;
+    const fotosSelecionadas = Array.from(pisosForm.elements.fotos.files);
+    if (fotosSelecionadas.length > 3) {
+        pisosForm.elements.fotos.setCustomValidity('Escolha no máximo 3 fotos.');
+        pisosForm.elements.fotos.reportValidity();
+        return;
     }
-    localStorage.setItem(chavePisos, JSON.stringify(pisos));
 
-    pisosForm.reset();
-    indicePisoEditando = null;
-    salvarPiso.textContent = 'Adicionar';
-    modal.close();
-    exibirPisos();
+    pisosForm.elements.fotos.setCustomValidity('');
+    const indice = indicePisoEditando;
+    const fotosAtuais = indice === null ? [] : (pisos[indice].fotos ?? []);
+    lerFotos(fotosSelecionadas).then(function (fotos) {
+        const piso = new Piso(
+            dados.get('nome'),
+            dados.get('bitola'),
+            dados.get('tonalidade'),
+            fotos.length > 0 ? fotos : fotosAtuais,
+            dados.get('altura'),
+            dados.get('largura'),
+            dados.get('cor'),
+            dados.get('textura'),
+            dados.get('resistencia'),
+            dados.get('caixa'),
+            dados.get('pecasPorCaixa'),
+            dados.get('preco'),
+            dados.get('estoque'),
+            dados.get('pecasAbertas')
+        );
+
+        if (indice === null) {
+            pisos.push(piso);
+        } else {
+            pisos[indice] = piso;
+        }
+        localStorage.setItem(chavePisos, JSON.stringify(pisos));
+
+        pisosForm.reset();
+        indicePisoEditando = null;
+        salvarPiso.textContent = 'Adicionar';
+        modal.close();
+        exibirPisos();
+    });
 });
+
+function lerFotos(fotos) {
+    return Promise.all(fotos.map(function (foto) {
+        return new Promise(function (resolve, reject) {
+            const leitor = new FileReader();
+            leitor.addEventListener('load', function () {
+                resolve(leitor.result);
+            });
+            leitor.addEventListener('error', reject);
+            leitor.readAsDataURL(foto);
+        });
+    }));
+}
+
+buscaPisos.addEventListener('input', exibirPisos);
 
 exibirPisos();
 exibirOrcamento();

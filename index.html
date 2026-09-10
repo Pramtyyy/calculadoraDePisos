@@ -20,6 +20,9 @@
             <label for="tonalidade">Tonalidade (lote):</label>
             <input type="number" id="tonalidade" name="tonalidade" min="0" max="999" step="1" required>
 
+            <label for="fotos">Fotos do piso (até 3):</label>
+            <input type="file" id="fotos" name="fotos" accept="image/*" multiple>
+
             <label for="altura">Altura (cm):</label>
             <input type="number" id="altura" name="altura" required>
 
@@ -70,12 +73,15 @@
         <button type="button" id="abrirFormulario">Adicionar Piso</button>
         <button type="button" id="limparPisos">Limpar pisos</button>
         <button type="button" id="abrirOrcamento">Orçamento (0)</button>
+        <label for="buscaPisos" class="campoBusca">Buscar piso:</label>
+        <input type="search" id="buscaPisos" placeholder="Nome, cor ou tamanho (ex.: 60x60)">
         <ul id="listaPisos"></ul>
     </div>
 
     <div>
         <dialog id="modalDetalhes">
             <pre id="detalhesPiso"></pre>
+            <div id="galeriaDetalhes" class="galeria"></div>
             <button type="button" id="editarPiso">Editar</button>
             <button type="button" id="venderPiso">Vender</button>
             <button type="button" id="fecharDetalhes">Fechar</button>
