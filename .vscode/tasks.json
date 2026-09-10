@@ -1,0 +1,54 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Android: gerar APK debug",
+            "type": "shell",
+            "command": "${workspaceFolder}\\android\\gradlew.bat",
+            "args": [
+                "assembleDebug"
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}\\android",
+                "env": {
+                    "JAVA_HOME": "C:\\Program Files\\Android\\Android Studio\\jbr"
+                }
+            },
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "Android: instalar APK no celular",
+            "type": "shell",
+            "command": "${env:LOCALAPPDATA}\\Android\\Sdk\\platform-tools\\adb.exe",
+            "args": [
+                "install",
+                "-r",
+                "${workspaceFolder}\\android\\app\\build\\outputs\\apk\\debug\\app-debug.apk"
+            ],
+            "problemMatcher": []
+        },
+        {
+            "label": "Android: abrir projeto no Android Studio",
+            "type": "shell",
+            "command": "C:\\Program Files\\Android\\Android Studio\\bin\\studio64.exe",
+            "args": [
+                "${workspaceFolder}\\android"
+            ],
+            "isBackground": true,
+            "problemMatcher": []
+        },
+        {
+            "label": "Android: gerar e instalar no celular",
+            "dependsOrder": "sequence",
+            "dependsOn": [
+                "Android: gerar APK debug",
+                "Android: instalar APK no celular"
+            ],
+            "problemMatcher": []
+        }
+    ]
+}
