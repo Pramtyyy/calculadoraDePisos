@@ -8,9 +8,66 @@
     <title>Calculador de Pisos</title>
 </head>
 <body>
-    <div>
-        <dialog id="modal">
-            <form id="pisosForm">
+    <header class="appHeader">
+        <h1>Calculador de Pisos</h1>
+    </header>
+
+    <main>
+        <section id="telaPrincipal" class="tela ativa">
+            <div class="inicioEscolha">
+                <p class="eyebrow">O que você deseja fazer?</p>
+                <div class="opcoesInicio">
+                    <button type="button" id="irParaCadastro" class="opcaoInicio">
+                        <span class="opcaoIcone">&#9633;</span>
+                        <strong>Cadastrar pisos</strong>
+                        <small>Adicionar ou editar produtos</small>
+                    </button>
+                    <button type="button" id="irParaOrcamento" class="opcaoInicio">
+                        <span class="opcaoIcone">&#128722;</span>
+                        <strong>Fazer orçamento</strong>
+                        <small>Escolher pisos e completar vendas</small>
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <section id="telaCadastro" class="tela">
+            <div class="telaCabecalho">
+                <div>
+                    <p class="eyebrow">Cadastro</p>
+                    <h2>Editar pisos</h2>
+                </div>
+                <div class="acoesCabecalho">
+                    <button type="button" id="voltarCadastro" class="botaoVoltar">Voltar</button>
+                    <button type="button" id="abrirFormulario">Cadastrar piso</button>
+                    <button type="button" id="alternarInativos">Mostrar inativos</button>
+                </div>
+            </div>
+            <label for="buscaPisos" class="campoBusca">Buscar piso:</label>
+            <input type="search" id="buscaPisos" placeholder="Nome, cor ou tamanho (ex.: 60x60)">
+            <ul id="listaPisosCadastro"></ul>
+        </section>
+
+        <section id="telaOrcamento" class="tela">
+            <div class="telaCabecalho">
+                <div>
+                    <p class="eyebrow">Orçamento</p>
+                    <h2>Escolha os pisos</h2>
+                </div>
+                <div class="acoesCabecalho">
+                    <button type="button" id="voltarOrcamento" class="botaoVoltar">Voltar</button>
+                    <button type="button" id="abrirOrcamento" class="botaoCarrinho" aria-label="Abrir orçamento" title="Abrir orçamento">&#128722; <span id="contadorOrcamento">0</span></button>
+                </div>
+            </div>
+            <label for="buscaPisosOrcamento" class="campoBusca">Buscar piso:</label>
+            <input type="search" id="buscaPisosOrcamento" placeholder="Nome, cor ou tamanho (ex.: 60x60)">
+            <ul id="listaPisosOrcamento"></ul>
+        </section>
+
+    </main>
+
+    <dialog id="modal">
+        <form id="pisosForm">
             <label for="nome">Nome:</label>
             <input type="text" id="nome" name="nome" required>
 
@@ -21,7 +78,10 @@
             <input type="number" id="tonalidade" name="tonalidade" min="0" max="999" step="1" required>
 
             <label for="fotos">Fotos do piso (até 3):</label>
-            <input type="file" id="fotos" name="fotos" accept="image/*" multiple>
+            <div class="seletorFotos">
+                <input type="file" id="fotos" name="fotos" accept="image/*" multiple>
+                <button type="button" id="abrirCamera" class="botaoCamera" aria-label="Tirar foto" title="Tirar foto">&#128247;</button>
+            </div>
 
             <label for="altura">Altura (cm):</label>
             <input type="number" id="altura" name="altura" required>
@@ -54,7 +114,7 @@
             <input type="number" id="caixa" name="caixa" min="0.01" step="0.01" required>
 
             <label for="pecasPorCaixa">Peças por caixa:</label>
-            <input type="number" id="pecasPorCaixa" name="pecasPorCaixa" min="1" step="1" value="1" required>
+            <input type="number" id="pecasPorCaixa" name="pecasPorCaixa" min="1" step="1" required>
 
             <label for="preco">Preço por m²:</label>
             <input type="number" id="preco" name="preco" min="0" step="0.01" required>
@@ -63,30 +123,25 @@
             <input type="number" id="estoque" name="estoque" min="0" step="1" required>
 
             <label for="pecasAbertas">Peças de caixa aberta:</label>
-            <input type="number" id="pecasAbertas" name="pecasAbertas" min="0" step="1" value="0" required>
+            <input type="number" id="pecasAbertas" name="pecasAbertas" min="0" step="1" required>
 
                 <button type="submit" id="salvarPiso">Adicionar</button>
-                <button type="button" id="fecharFormulario">Fechar</button>
-            </form>
-        </dialog>
-
-        <button type="button" id="abrirFormulario">Adicionar Piso</button>
-        <button type="button" id="limparPisos">Limpar pisos</button>
-        <button type="button" id="abrirOrcamento">Orçamento (0)</button>
-        <label for="buscaPisos" class="campoBusca">Buscar piso:</label>
-        <input type="search" id="buscaPisos" placeholder="Nome, cor ou tamanho (ex.: 60x60)">
-        <ul id="listaPisos"></ul>
-    </div>
+        </form>
+    </dialog>
 
     <div>
         <dialog id="modalDetalhes">
             <pre id="detalhesPiso"></pre>
             <div id="galeriaDetalhes" class="galeria"></div>
             <button type="button" id="editarPiso">Editar</button>
-            <button type="button" id="venderPiso">Vender</button>
-            <button type="button" id="fecharDetalhes">Fechar</button>
+            <button type="button" id="venderPiso">Adicionar ao orçamento</button>
+            <button type="button" id="excluirPiso" class="botaoExcluir" aria-label="Inativar piso" title="Inativar piso">Inativar piso</button>
         </dialog>
     </div>
+
+    <dialog id="modalGaleria">
+        <div id="galeriaAmpliada" class="galeriaAmpliada"></div>
+    </dialog>
 
     <dialog id="modalVenda">
         <form id="vendaForm">
@@ -105,7 +160,6 @@
             <p>Metros vendidos: <strong id="metrosVendidos"></strong></p>
             <p>Valor total: <strong id="valorTotal"></strong></p>
             <button type="submit">Adicionar ao orçamento</button>
-            <button type="button" id="fecharVenda">Cancelar</button>
         </form>
     </dialog>
 
@@ -115,9 +169,16 @@
         <p>Metragem total: <strong id="metragemOrcamento">0.00 m²</strong></p>
         <p>Valor total: <strong id="valorOrcamento">R$ 0,00</strong></p>
         <p>Quantidade de argamassa: <strong id="quantidadeArgamassa">0 un</strong></p>
-        <button type="button" id="finalizarOrcamento">Finalizar orçamento</button>
+        <button type="button" id="finalizarOrcamento">Finalizar venda</button>
         <button type="button" id="limparOrcamento">Limpar orçamento</button>
-        <button type="button" id="fecharOrcamento">Fechar</button>
     </dialog>
+
+    <dialog id="modalConfirmacaoVenda">
+        <h2>Confirmar venda</h2>
+        <p>Confirmar a venda e baixar os itens do estoque?</p>
+        <button type="button" id="cancelarConfirmacaoVenda">Cancelar</button>
+        <button type="button" id="confirmarVenda">Confirmar</button>
+    </dialog>
+
 </body>
 </html>

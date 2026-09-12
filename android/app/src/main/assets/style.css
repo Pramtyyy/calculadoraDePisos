@@ -8,27 +8,137 @@ body {
     min-height: 100%;
 }
 
+body.modalAberto {
+    overflow: hidden;
+    touch-action: none;
+}
+
 body {
-    padding: 48px 16px 24px;
+    padding: 0 16px 32px;
     font-family: Arial, sans-serif;
     background: #f5f5f5;
     color: #222;
 }
 
-body > div {
+body > header,
+main {
     max-width: 720px;
     margin: 0 auto;
 }
 
-body > div:first-child {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 10px;
-    align-items: center;
+.appHeader {
+    padding: 20px 0 14px;
 }
 
-body > div:first-child > button {
+.appHeader h1 {
+    margin: 0 0 16px;
+    font-size: 24px;
+}
+
+.tela {
+    display: none;
+    padding: 8px 0 24px;
+}
+
+.tela.ativa {
+    display: block;
+}
+
+.inicioEscolha {
+    min-height: 62vh;
+    display: grid;
+    align-content: center;
+}
+
+.opcoesInicio {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
+    margin-top: 14px;
+}
+
+.opcaoInicio {
+    display: grid;
+    justify-items: start;
+    gap: 8px;
+    min-height: 150px;
+    padding: 20px;
+    border: 1px solid #c6d9d7;
+    border-radius: 8px;
+    background: #e7f2f0;
+    color: #24403d;
+    text-align: left;
+}
+
+.opcaoInicio:active,
+.opcaoInicio:focus {
+    background: #dbece9;
+    outline: none;
+}
+
+.opcaoIcone {
+    font-size: 30px;
+}
+
+.opcaoInicio strong {
+    font-size: 18px;
+}
+
+.opcaoInicio small {
+    color: #56736f;
+    font-size: 14px;
+}
+
+.telaCabecalho {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    margin-bottom: 18px;
+}
+
+.acoesCabecalho {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.botaoVoltar {
+    background: #d8e4e2;
+    color: #24403d;
+}
+
+.telaCabecalho h2 {
     margin: 0;
+    font-size: 22px;
+}
+
+.eyebrow {
+    margin: 0 0 4px;
+    color: #56736f;
+    font-size: 12px;
+    font-weight: bold;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.statusCadastro {
+    padding: 6px 10px;
+    border-radius: 999px;
+    background: #e7f2f0;
+    color: #315b56;
+    font-size: 13px;
+}
+
+.botaoCarrinho {
+    min-width: 64px;
+    padding: 8px 12px;
+    font-size: 20px;
+}
+
+.botaoCarrinho span {
+    font-size: 14px;
+    vertical-align: middle;
 }
 
 .campoBusca {
@@ -54,37 +164,90 @@ button:disabled {
     opacity: 0.55;
 }
 
+.botaoExcluir {
+    background: #b3261e;
+    padding: 8px 12px;
+    font-size: 22px;
+    line-height: 1;
+}
+
 ul {
     width: 100%;
     padding-left: 20px;
 }
 
 li {
-    margin: 10px 0;
+    margin: 12px 0;
     line-height: 1.5;
+    list-style: none;
+}
+
+.pisoCard {
+    padding: 14px;
+    border: 1px solid #c6d9d7;
+    border-radius: 8px;
+    background: #e7f2f0;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    outline: none;
+}
+
+.pisoCard:focus,
+.pisoCard:active {
+    background: #e7f2f0;
+    outline: none;
+}
+
+.pisoInformacoes {
+    font-weight: 600;
 }
 
 .galeria {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
+    display: block;
     margin-top: 8px;
 }
 
 .galeria img {
-    width: 84px;
-    height: 84px;
+    display: block;
+    width: min(100%, 220px);
+    height: 150px;
     border-radius: 6px;
     object-fit: cover;
+    cursor: pointer;
+}
+
+.galeriaAmpliada {
+    display: flex;
+    width: min(82vw, 520px);
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    overscroll-behavior-x: contain;
+    gap: 12px;
+}
+
+.galeriaAmpliada img {
+    flex: 0 0 100%;
+    width: 100%;
+    height: min(65vh, 420px);
+    object-fit: contain;
+    scroll-snap-align: center;
 }
 
 dialog {
     width: min(92vw, 560px);
-    max-height: 82vh;
+    max-height: min(82vh, calc(var(--altura-disponivel, 100vh) - 32px));
     overflow-y: auto;
+    overscroll-behavior: contain;
+    touch-action: pan-y;
     padding: 20px;
     border: 0;
     border-radius: 8px;
+}
+
+@supports not (height: 100dvh) {
+    dialog {
+        max-height: calc(100vh - 32px);
+    }
 }
 
 dialog::backdrop {
@@ -96,12 +259,57 @@ form {
     gap: 8px;
 }
 
+#pisosForm {
+    max-width: 560px;
+    margin: 0 auto;
+    padding: 18px;
+    border: 1px solid #c6d9d7;
+    border-radius: 8px;
+    background: #fff;
+}
+
+#modal {
+    width: min(92vw, 560px);
+}
+
+.resumoOrcamento {
+    margin: 18px 0;
+    padding: 16px;
+    border: 1px solid #c6d9d7;
+    border-radius: 8px;
+    background: #e7f2f0;
+}
+
+.resumoOrcamento p {
+    display: flex;
+    justify-content: space-between;
+    gap: 16px;
+    margin: 8px 0;
+}
+
 input,
 select {
     width: 100%;
     min-height: 42px;
     padding: 8px;
     font-size: 16px;
+}
+
+.seletorFotos {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.seletorFotos input {
+    flex: 1;
+}
+
+.botaoCamera {
+    flex: 0 0 52px;
+    padding: 8px;
+    font-size: 22px;
+    line-height: 1;
 }
 
 pre {
@@ -111,10 +319,15 @@ pre {
 
 @media (max-width: 480px) {
     body {
-        padding: 56px 12px 24px;
+        padding: 0 12px 24px;
     }
 
-    body > div:first-child > button {
-        flex: 1 1 100%;
+    .telaCabecalho {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+
+    .opcoesInicio {
+        grid-template-columns: 1fr;
     }
 }

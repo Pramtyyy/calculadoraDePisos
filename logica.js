@@ -13,23 +13,40 @@ function Piso(nome, bitola, tonalidade, fotos, altura, largura, cor, textura, re
     this.preco = preco;
     this.estoque = estoque;
     this.pecasAbertas = pecasAbertas;
+    this.ativo = true;
 }
 
 const chavePisos = 'pisos';
+const chaveApi = 'apiUrl';
+let pisosEmMemoria = JSON.parse(localStorage.getItem(chavePisos)) || [];
+let apiUrl = window.location.protocol === 'file:'
+    ? 'http://192.168.0.15:8000'
+    : (localStorage.getItem(chaveApi) || window.location.origin);
+localStorage.setItem(chaveApi, apiUrl);
 const modal = document.getElementById('modal');
+const telaPrincipal = document.getElementById('telaPrincipal');
+const telaCadastro = document.getElementById('telaCadastro');
+const telaOrcamento = document.getElementById('telaOrcamento');
+const contadorOrcamento = document.getElementById('contadorOrcamento');
+const irParaCadastro = document.getElementById('irParaCadastro');
+const irParaOrcamento = document.getElementById('irParaOrcamento');
 const pisosForm = document.getElementById('pisosForm');
 const abrirFormulario = document.getElementById('abrirFormulario');
-const listaPisos = document.getElementById('listaPisos');
-const fecharFormulario = document.getElementById('fecharFormulario');
-const limparPisos = document.getElementById('limparPisos');
-const abrirOrcamento = document.getElementById('abrirOrcamento');
+const alternarInativos = document.getElementById('alternarInativos');
+const voltarCadastro = document.getElementById('voltarCadastro');
+const voltarOrcamento = document.getElementById('voltarOrcamento');
+const listaPisosCadastro = document.getElementById('listaPisosCadastro');
+const listaPisosOrcamento = document.getElementById('listaPisosOrcamento');
 const buscaPisos = document.getElementById('buscaPisos');
+const buscaPisosOrcamento = document.getElementById('buscaPisosOrcamento');
 const modalDetalhes = document.getElementById('modalDetalhes');
 const detalhesPiso = document.getElementById('detalhesPiso');
 const galeriaDetalhes = document.getElementById('galeriaDetalhes');
-const fecharDetalhes = document.getElementById('fecharDetalhes');
+const modalGaleria = document.getElementById('modalGaleria');
+const galeriaAmpliada = document.getElementById('galeriaAmpliada');
 const editarPiso = document.getElementById('editarPiso');
 const venderPiso = document.getElementById('venderPiso');
+const excluirPiso = document.getElementById('excluirPiso');
 const salvarPiso = document.getElementById('salvarPiso');
 const modalVenda = document.getElementById('modalVenda');
 const vendaForm = document.getElementById('vendaForm');
@@ -41,24 +58,231 @@ const unidadeVenda = document.getElementById('unidadeVenda');
 const quantidadeVenda = document.getElementById('quantidadeVenda');
 const metrosVendidos = document.getElementById('metrosVendidos');
 const valorTotal = document.getElementById('valorTotal');
-const fecharVenda = document.getElementById('fecharVenda');
 const modalOrcamento = document.getElementById('modalOrcamento');
+const modalConfirmacaoVenda = document.getElementById('modalConfirmacaoVenda');
+const cancelarConfirmacaoVenda = document.getElementById('cancelarConfirmacaoVenda');
+const confirmarVenda = document.getElementById('confirmarVenda');
 const listaOrcamento = document.getElementById('listaOrcamento');
 const metragemOrcamento = document.getElementById('metragemOrcamento');
 const valorOrcamento = document.getElementById('valorOrcamento');
 const finalizarOrcamento = document.getElementById('finalizarOrcamento');
 const limparOrcamento = document.getElementById('limparOrcamento');
-const fecharOrcamento = document.getElementById('fecharOrcamento');
 const quantidadeArgamassa = document.getElementById('quantidadeArgamassa');
+const fotosInput = document.getElementById('fotos');
+const abrirCamera = document.getElementById('abrirCamera');
 let indicePisoSelecionado = null;
 let indicePisoEditando = null;
 let itensOrcamento = [];
+let fotosAndroidSelecionadas = [];
+let fotosPreservadasNaEdicao = [];
+let resolverConfirmacaoVenda = null;
+let mostrarInativos = false;
 
-function obterPisos() {
-    return JSON.parse(localStorage.getItem(chavePisos)) || [];
+function mostrarTela(nome) {
+    document.querySelectorAll('.tela').forEach(function (tela) {
+        tela.classList.toggle('ativa', tela.id === `tela${nome[0].toUpperCase()}${nome.slice(1)}`);
+    });
+    document.querySelectorAll('.navButton').forEach(function (botao) {
+        botao.classList.toggle('ativo', botao.dataset.tela === nome);
+    });
 }
 
-listaPisos.addEventListener('click', function (event) {
+irParaCadastro.addEventListener('click', function () {
+    mostrarTela('cadastro');
+});
+
+irParaOrcamento.addEventListener('click', function () {
+    exibirPisos();
+    mostrarTela('orcamento');
+});
+
+voltarCadastro.addEventListener('click', function () {
+    mostrarTela('principal');
+});
+
+voltarOrcamento.addEventListener('click', function () {
+    mostrarTela('principal');
+});
+
+window.tratarVoltarAndroid = function () {
+    const dialogoAberto = document.querySelector('dialog[open]');
+    if (dialogoAberto) {
+        dialogoAberto.close();
+        return true;
+    }
+
+    const telaAtiva = document.querySelector('.tela.ativa');
+    if (telaAtiva && telaAtiva.id !== 'telaPrincipal') {
+        mostrarTela('principal');
+        return true;
+    }
+
+    return false;
+};
+
+function fecharAoTocarFora(dialog, aoFechar) {
+    dialog.addEventListener('click', function (event) {
+        if (event.target === dialog) {
+            dialog.close();
+        }
+    });
+    dialog.addEventListener('close', function () {
+        if (!document.querySelector('dialog[open]')) {
+            document.body.classList.remove('modalAberto');
+        }
+    });
+    if (aoFechar) {
+        dialog.addEventListener('close', aoFechar);
+    }
+}
+
+const observadorDeModais = new MutationObserver(function () {
+    document.body.classList.toggle(
+        'modalAberto',
+        Boolean(document.querySelector('dialog[open]'))
+    );
+});
+
+document.querySelectorAll('dialog').forEach(function (dialog) {
+    observadorDeModais.observe(dialog, { attributes: true, attributeFilter: ['open'] });
+});
+
+fecharAoTocarFora(modal, function () {
+    indicePisoEditando = null;
+    fotosAndroidSelecionadas = [];
+    fotosPreservadasNaEdicao = [];
+    pisosForm.reset();
+    salvarPiso.textContent = 'Adicionar';
+});
+fecharAoTocarFora(modalDetalhes);
+fecharAoTocarFora(modalGaleria);
+fecharAoTocarFora(modalVenda);
+fecharAoTocarFora(modalOrcamento);
+fecharAoTocarFora(modalConfirmacaoVenda, function () {
+    if (resolverConfirmacaoVenda) {
+        resolverConfirmacaoVenda(false);
+        resolverConfirmacaoVenda = null;
+    }
+});
+
+function pedirConfirmacaoVenda() {
+    return new Promise(function (resolver) {
+        resolverConfirmacaoVenda = resolver;
+        modalConfirmacaoVenda.showModal();
+    });
+}
+
+cancelarConfirmacaoVenda.addEventListener('click', function () {
+    modalConfirmacaoVenda.close();
+});
+
+confirmarVenda.addEventListener('click', function () {
+    if (resolverConfirmacaoVenda) {
+        resolverConfirmacaoVenda(true);
+        resolverConfirmacaoVenda = null;
+    }
+    modalConfirmacaoVenda.close();
+});
+
+function avisarFalhaFoto() {
+    window.alert('Não foi possível carregar a foto.');
+}
+
+window.onAndroidFilesSelected = function (arquivos) {
+    if (!Array.isArray(arquivos) || arquivos.length === 0) {
+        fotosAndroidSelecionadas = [];
+        return;
+    }
+    fotosAndroidSelecionadas = arquivos.slice(0, 3);
+    const transferencia = new DataTransfer();
+    fotosAndroidSelecionadas.forEach(function (dataUrl, index) {
+        const partes = dataUrl.split(',');
+        const mime = partes[0].match(/:(.*?);/)[1];
+        const bytes = atob(partes[1]);
+        const dados = new Uint8Array(bytes.length);
+        for (let indice = 0; indice < bytes.length; indice++) {
+            dados[indice] = bytes.charCodeAt(indice);
+        }
+        transferencia.items.add(new File(
+            [new Blob([dados], { type: mime })],
+            `foto-${index + 1}.jpg`,
+            { type: mime }
+        ));
+    });
+    fotosInput.files = transferencia.files;
+    fotosInput.dispatchEvent(new Event('change', { bubbles: true }));
+};
+
+fotosInput.addEventListener('click', function (event) {
+    if (window.AndroidFilePicker) {
+        event.preventDefault();
+        window.AndroidFilePicker.open();
+    }
+});
+
+abrirCamera.addEventListener('click', function () {
+    if (window.AndroidCamera) {
+        window.AndroidCamera.open();
+    } else {
+        fotosInput.click();
+    }
+});
+
+function obterPisos() {
+    return pisosEmMemoria;
+}
+
+function persistirPisos(pisos) {
+    pisosEmMemoria = pisos;
+    localStorage.setItem(chavePisos, JSON.stringify(pisos));
+    if (!apiUrl) {
+        return;
+    }
+
+    fetch(`${apiUrl}/api/pisos`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(pisos)
+    }).then(function (resposta) {
+        if (!resposta.ok) {
+            throw new Error(`HTTP ${resposta.status}`);
+        }
+    }).catch(function (erro) {
+        console.warn('Servidor indisponível; dados mantidos localmente.', erro);
+        window.alert('Não foi possível sincronizar com o servidor. Os dados ficaram somente neste aparelho.');
+    });
+}
+
+async function carregarPisos() {
+    if (!apiUrl && window.location.protocol === 'file:' && !localStorage.getItem(chaveApi)) {
+        const endereco = window.prompt(
+            'Informe a URL do servidor (ex.: http://192.168.0.10:8000). Deixe vazio para usar somente este aparelho:',
+            ''
+        );
+        if (endereco) {
+            apiUrl = endereco.replace(/\/$/, '');
+            localStorage.setItem(chaveApi, apiUrl);
+        }
+    }
+
+    if (!apiUrl) {
+        return;
+    }
+
+    try {
+        const resposta = await fetch(`${apiUrl}/api/pisos`);
+        if (!resposta.ok) {
+            throw new Error(`HTTP ${resposta.status}`);
+        }
+        pisosEmMemoria = await resposta.json();
+        localStorage.setItem(chavePisos, JSON.stringify(pisosEmMemoria));
+        exibirPisos();
+    } catch (erro) {
+        console.warn('Servidor indisponível; usando dados locais.', erro);
+    }
+}
+
+function abrirDetalhesPiso(event, modo) {
     if (event.target.closest('button')) {
         return;
     }
@@ -66,8 +290,17 @@ listaPisos.addEventListener('click', function (event) {
     const item = event.target.closest('li');
     if (item) {
         const piso = obterPisos()[Number(item.dataset.index)];
+        if (!piso) {
+            return;
+        }
         indicePisoSelecionado = Number(item.dataset.index);
+        editarPiso.style.display = modo === 'cadastro' ? '' : 'none';
+        excluirPiso.style.display = modo === 'cadastro' ? '' : 'none';
+        excluirPiso.textContent = piso.ativo === false ? 'Ativar piso' : 'Inativar piso';
+        excluirPiso.title = piso.ativo === false ? 'Ativar piso' : 'Inativar piso';
+        venderPiso.style.display = modo === 'orcamento' ? '' : 'none';
         modalDetalhes.showModal();
+        galeriaDetalhes.replaceChildren();
         detalhesPiso.textContent = [
             `Nome: ${piso.nome}`,
             `Bitola: ${piso.bitola ?? 'Não informado'}`,
@@ -85,15 +318,31 @@ listaPisos.addEventListener('click', function (event) {
         exibirGaleria(galeriaDetalhes, piso.fotos);
         venderPiso.disabled = obterTotalPecas(piso) <= 0;
     }
+}
+
+listaPisosCadastro.addEventListener('click', function (event) {
+    abrirDetalhesPiso(event, 'cadastro');
+});
+
+listaPisosOrcamento.addEventListener('click', function (event) {
+    abrirDetalhesPiso(event, 'orcamento');
 });
 
 function exibirPisos() {
-    listaPisos.innerHTML = '';
     const pisos = obterPisos();
-    limparPisos.disabled = pisos.length === 0;
 
-    const termo = buscaPisos.value.trim().toLocaleLowerCase();
+    renderizarListaPisos(listaPisosCadastro, buscaPisos.value, !mostrarInativos);
+    renderizarListaPisos(listaPisosOrcamento, buscaPisosOrcamento.value, true);
+}
+
+function renderizarListaPisos(lista, termoBusca, somenteAtivos) {
+    lista.innerHTML = '';
+    const pisos = obterPisos();
+    const termo = termoBusca.trim().toLocaleLowerCase();
     pisos.forEach(function (piso, index) {
+        if (somenteAtivos && piso.ativo === false) {
+            return;
+        }
         const tamanho = `${piso.altura ?? ''}x${piso.largura ?? ''}`;
         const textoBusca = `${piso.nome} ${piso.cor ?? ''} ${piso.altura ?? ''} ${piso.largura ?? ''} ${tamanho}`.toLocaleLowerCase();
         if (termo && !textoBusca.includes(termo)) {
@@ -101,54 +350,82 @@ function exibirPisos() {
         }
         const item = document.createElement('li');
         item.dataset.index = index;
+        const card = document.createElement('div');
+        card.className = 'pisoCard';
         const pecasAbertas = Number(piso.pecasAbertas ?? 0);
         const estoque = `${piso.estoque ?? 0} caixas${pecasAbertas > 0 ? ` e ${pecasAbertas} peças` : ''}`;
-        item.textContent = `${piso.nome} - ${piso.bitola ?? '-'}/${piso.tonalidade ?? '-'} - ${formatarMoeda(piso.preco)}/m² - Estoque: ${estoque} `;
-        exibirGaleria(item, piso.fotos);
-        const deletarButton = document.createElement('button');
-        deletarButton.type = 'button';
-        deletarButton.textContent = 'Deletar Piso';
-        deletarButton.addEventListener('click', function () {
-            pisos.splice(index, 1);
-            localStorage.setItem(chavePisos, JSON.stringify(pisos));
-            exibirPisos();
-        });
-        item.appendChild(deletarButton);
-        listaPisos.appendChild(item);
+        const informacoes = document.createElement('div');
+        informacoes.className = 'pisoInformacoes';
+        const situacao = piso.ativo === false ? ' - INATIVO' : '';
+        informacoes.textContent = `${piso.nome}${situacao} - ${piso.bitola ?? '-'}/${piso.tonalidade ?? '-'} - ${formatarMoeda(piso.preco)}/m² - Estoque: ${estoque}`;
+        card.appendChild(informacoes);
+        exibirGaleria(card, piso.fotos);
+        item.appendChild(card);
+        lista.appendChild(item);
     });
 }
 
 function exibirGaleria(container, fotos) {
-    if (!Array.isArray(fotos) || fotos.length === 0) {
+    const fotosValidas = Array.isArray(fotos) ? fotos.filter(Boolean).slice(0, 3) : [];
+    if (fotosValidas.length === 0) {
         return;
     }
 
     const galeria = document.createElement('div');
     galeria.className = 'galeria';
-    fotos.forEach(function (foto) {
-        const imagem = document.createElement('img');
-        imagem.src = foto;
-        imagem.alt = 'Foto do piso';
-        galeria.appendChild(imagem);
+    const imagem = document.createElement('img');
+    imagem.src = fotosValidas[0];
+    imagem.alt = 'Foto do piso';
+    imagem.loading = 'eager';
+    imagem.addEventListener('click', function (event) {
+        event.stopPropagation();
+        abrirGaleria(fotosValidas);
     });
+    galeria.appendChild(imagem);
     container.appendChild(galeria);
 }
 
-fecharDetalhes.addEventListener('click', function () {
+function abrirGaleria(fotos) {
+    galeriaAmpliada.innerHTML = '';
+    fotos.slice(0, 3).forEach(function (foto) {
+        const imagem = document.createElement('img');
+        imagem.src = foto;
+        imagem.alt = 'Foto ampliada do piso';
+        galeriaAmpliada.appendChild(imagem);
+    });
+    modalGaleria.showModal();
+}
+
+excluirPiso.addEventListener('click', function () {
+    const pisos = obterPisos();
+    if (indicePisoSelecionado === null || !pisos[indicePisoSelecionado]) {
+        return;
+    }
+
+    pisos[indicePisoSelecionado].ativo = pisos[indicePisoSelecionado].ativo === false;
+    persistirPisos(pisos);
+    indicePisoSelecionado = null;
     modalDetalhes.close();
+    exibirPisos();
 });
 
 editarPiso.addEventListener('click', function () {
     const piso = obterPisos()[indicePisoSelecionado];
+    if (!piso) {
+        return;
+    }
     indicePisoEditando = indicePisoSelecionado;
+    fotosPreservadasNaEdicao = Array.isArray(piso.fotos) ? piso.fotos.slice() : [];
     modalDetalhes.close();
 
     Object.keys(piso).forEach(function (campo) {
         const input = pisosForm.elements[campo];
-        if (input) {
+        if (input && campo !== 'fotos') {
             input.value = piso[campo] ?? '';
         }
     });
+
+    fotosInput.value = '';
 
     salvarPiso.textContent = 'Salvar alterações';
     modal.showModal();
@@ -168,7 +445,7 @@ venderPiso.addEventListener('click', function () {
     areaPorPeca.textContent = `${calcularAreaPorPeca(piso).toFixed(4)} m²`;
     metrosPorCaixa.textContent = `${Number(piso.caixa ?? 0).toFixed(2)} m²`;
     unidadeVenda.value = 'caixas';
-    quantidadeVenda.value = '1';
+    quantidadeVenda.value = '';
     atualizarLimiteQuantidade();
     atualizarValorTotal();
     modalVenda.showModal();
@@ -240,10 +517,6 @@ unidadeVenda.addEventListener('change', function () {
     atualizarValorTotal();
 });
 
-fecharVenda.addEventListener('click', function () {
-    modalVenda.close();
-});
-
 vendaForm.addEventListener('submit', function (event) {
     event.preventDefault();
 
@@ -305,26 +578,21 @@ function exibirOrcamento() {
     metragemOrcamento.textContent = `${metros.toFixed(2)} m²`;
     valorOrcamento.textContent = formatarMoeda(valor);
     quantidadeArgamassa.textContent = `${calcularArgamassaNecessaria(metros)} sacos`;
-    abrirOrcamento.textContent = `Orçamento (${itensOrcamento.length})`;
+    contadorOrcamento.textContent = `${itensOrcamento.length} ${itensOrcamento.length === 1 ? 'item' : 'itens'}`;
     finalizarOrcamento.disabled = itensOrcamento.length === 0;
     limparOrcamento.disabled = itensOrcamento.length === 0;
 }
-
-abrirOrcamento.addEventListener('click', function () {
-    exibirOrcamento();
-    modalOrcamento.showModal();
-});
-
-fecharOrcamento.addEventListener('click', function () {
-    modalOrcamento.close();
-});
 
 limparOrcamento.addEventListener('click', function () {
     itensOrcamento = [];
     exibirOrcamento();
 });
 
-finalizarOrcamento.addEventListener('click', function () {
+finalizarOrcamento.addEventListener('click', async function () {
+    if (!await pedirConfirmacaoVenda()) {
+        return;
+    }
+
     const pisos = obterPisos();
     const pecasPorPiso = {};
 
@@ -340,24 +608,25 @@ finalizarOrcamento.addEventListener('click', function () {
         piso.pecasAbertas = totalRestante % pecasPorCaixa;
     });
 
-    localStorage.setItem(chavePisos, JSON.stringify(pisos));
+    persistirPisos(pisos);
     itensOrcamento = [];
-    modalOrcamento.close();
     exibirOrcamento();
     exibirPisos();
+    mostrarTela('orcamento');
 });
 
 abrirFormulario.addEventListener('click', function () {
+    indicePisoEditando = null;
+    fotosAndroidSelecionadas = [];
+    fotosPreservadasNaEdicao = [];
+    pisosForm.reset();
+    salvarPiso.textContent = 'Adicionar';
     modal.showModal();
 });
 
-fecharFormulario.addEventListener('click', function () {
-    modal.close();
-});
-
-limparPisos.addEventListener('click', function () {
-    localStorage.removeItem(chavePisos);
-    exibirPisos();
+abrirOrcamento.addEventListener('click', function () {
+    exibirOrcamento();
+    modalOrcamento.showModal();
 });
 
 pisosForm.addEventListener('submit', function (event) {
@@ -365,22 +634,23 @@ pisosForm.addEventListener('submit', function (event) {
 
     const dados = new FormData(pisosForm);
     const pisos = obterPisos();
-    const fotosSelecionadas = Array.from(pisosForm.elements.fotos.files);
-    if (fotosSelecionadas.length > 3) {
-        pisosForm.elements.fotos.setCustomValidity('Escolha no máximo 3 fotos.');
-        pisosForm.elements.fotos.reportValidity();
-        return;
-    }
-
+    const fotosSelecionadas = fotosAndroidSelecionadas.length > 0
+        ? fotosAndroidSelecionadas
+        : Array.from(pisosForm.elements.fotos.files);
     pisosForm.elements.fotos.setCustomValidity('');
     const indice = indicePisoEditando;
-    const fotosAtuais = indice === null ? [] : (pisos[indice].fotos ?? []);
-    lerFotos(fotosSelecionadas).then(function (fotos) {
+    const fotosAtuais = indice === null
+        ? []
+        : (fotosPreservadasNaEdicao.length > 0 ? fotosPreservadasNaEdicao : (pisos[indice].fotos ?? []));
+    lerFotos(fotosSelecionadas.slice(0, 3)).then(function (fotos) {
+        const fotosFinais = fotos.length > 0
+            ? fotosAtuais.concat(fotos).slice(-3)
+            : fotosAtuais;
         const piso = new Piso(
             dados.get('nome'),
             dados.get('bitola'),
             dados.get('tonalidade'),
-            fotos.length > 0 ? fotos : fotosAtuais,
+            fotosFinais,
             dados.get('altura'),
             dados.get('largura'),
             dados.get('cor'),
@@ -398,22 +668,34 @@ pisosForm.addEventListener('submit', function (event) {
         } else {
             pisos[indice] = piso;
         }
-        localStorage.setItem(chavePisos, JSON.stringify(pisos));
+        persistirPisos(pisos);
 
         pisosForm.reset();
+        fotosAndroidSelecionadas = [];
+        fotosPreservadasNaEdicao = [];
         indicePisoEditando = null;
         salvarPiso.textContent = 'Adicionar';
         modal.close();
         exibirPisos();
+        mostrarTela('cadastro');
+    }).catch(function () {
+        avisarFalhaFoto();
+        pisosForm.elements.fotos.setCustomValidity('Não foi possível carregar a foto.');
+        pisosForm.elements.fotos.reportValidity();
     });
 });
 
 function lerFotos(fotos) {
     return Promise.all(fotos.map(function (foto) {
         return new Promise(function (resolve, reject) {
+            if (typeof foto === 'string') {
+                processarImagem(foto, resolve, reject);
+                return;
+            }
+
             const leitor = new FileReader();
             leitor.addEventListener('load', function () {
-                resolve(leitor.result);
+                processarImagem(leitor.result, resolve, reject);
             });
             leitor.addEventListener('error', reject);
             leitor.readAsDataURL(foto);
@@ -421,9 +703,49 @@ function lerFotos(fotos) {
     }));
 }
 
+function processarImagem(dataUrl, resolve, reject) {
+    const imagem = new Image();
+    imagem.addEventListener('load', function () {
+        const limite = 2400;
+        const escala = Math.min(1, limite / Math.max(imagem.width, imagem.height));
+        const canvas = document.createElement('canvas');
+        canvas.width = Math.max(1, Math.round(imagem.width * escala));
+        canvas.height = Math.max(1, Math.round(imagem.height * escala));
+        canvas.getContext('2d').drawImage(imagem, 0, 0, canvas.width, canvas.height);
+        resolve(canvas.toDataURL('image/jpeg', 0.9));
+    });
+    imagem.addEventListener('error', reject);
+    imagem.src = dataUrl;
+}
+
 buscaPisos.addEventListener('input', exibirPisos);
+buscaPisosOrcamento.addEventListener('input', exibirPisos);
+
+alternarInativos.addEventListener('click', function () {
+    mostrarInativos = !mostrarInativos;
+    alternarInativos.textContent = mostrarInativos ? 'Mostrar somente ativos' : 'Mostrar inativos';
+    exibirPisos();
+});
+
+function atualizarAlturaDisponivel() {
+    const altura = window.visualViewport ? window.visualViewport.height : window.innerHeight;
+    document.documentElement.style.setProperty('--altura-disponivel', `${altura}px`);
+    const campoAtivo = document.activeElement;
+    if (campoAtivo && document.body.classList.contains('modalAberto')) {
+        window.setTimeout(function () {
+            campoAtivo.scrollIntoView({ block: 'center', behavior: 'smooth' });
+        }, 80);
+    }
+}
+
+atualizarAlturaDisponivel();
+window.addEventListener('resize', atualizarAlturaDisponivel);
+if (window.visualViewport) {
+    window.visualViewport.addEventListener('resize', atualizarAlturaDisponivel);
+}
 
 exibirPisos();
 exibirOrcamento();
+carregarPisos();
 
 

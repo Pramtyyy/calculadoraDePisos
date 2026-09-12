@@ -11,6 +11,12 @@ Este projeto abre o `index.html` existente dentro de uma `WebView` Android.
 
 O app habilita JavaScript e armazenamento DOM para preservar o uso do `localStorage` da aplicacao.
 
+## Compartilhar dados entre celulares
+
+Na pasta principal do projeto, execute `python server.py` no computador conectado a mesma rede Wi-Fi dos celulares. Abra `http://IP_DO_COMPUTADOR:8000` no navegador para usar o app compartilhado.
+
+No APK, na primeira abertura, informe esse mesmo endereco quando solicitado, por exemplo `http://192.168.0.10:8000`. O servidor guarda os pisos em `dados.sqlite3`.
+
 ## Usar pelo VS Code
 
 As tarefas ficam em `.vscode/tasks.json`:
