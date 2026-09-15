@@ -445,17 +445,26 @@ function renderizarListaPisos(lista, termoBusca, somenteAtivos) {
         item.dataset.index = index;
         const card = document.createElement('div');
         card.className = 'pisoCard';
+        const pecasPorCaixa = Number(piso.pecasPorCaixa ?? 1);
         const pecasAbertas = Number(piso.pecasAbertas ?? 0);
         const estoque = `${piso.estoque ?? 0} caixas${pecasAbertas > 0 ? ` e ${pecasAbertas} peças` : ''}`;
         const informacoes = document.createElement('div');
         informacoes.className = 'pisoInformacoes';
         const situacao = piso.ativo === false ? ' - INATIVO' : '';
-        informacoes.textContent = `${piso.nome}${situacao} - ${piso.bitola ?? '-'}/${piso.tonalidade ?? '-'} - ${formatarMoeda(piso.preco)}/m² - Estoque: ${estoque}`;
+        informacoes.textContent = `${piso.nome}${situacao} - ${piso.bitola ?? '-'}/${piso.tonalidade ?? '-'} - ${formatarMoeda(piso.preco)}/m² - Estoque: ${estoque} - ${calcularAreaTotalPiso(piso)}/m²`;
         card.appendChild(informacoes);
         exibirGaleria(card, piso.fotos);
         item.appendChild(card);
         lista.appendChild(item);
     });
+}
+
+function calcularAreaTotalPiso(piso) {
+    const metrosPorCaixa = Number(piso?.caixa ?? 0);
+    const pecasAbertas = Number(piso?.pecasAbertas ?? 0);
+    const estoque = Number(piso?.estoque ?? 0);
+    const areaPorPeca = calcularAreaPorPeca(piso);
+    return (estoque * metrosPorCaixa + pecasAbertas * areaPorPeca ).toFixed(2);
 }
 
 function exibirGaleria(container, fotos) {
