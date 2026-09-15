@@ -81,19 +81,24 @@ class AppHandler(SimpleHTTPRequestHandler):
 
         try:
             tamanho = int(self.headers.get("Content-Length", "0"))
-            dados = json.loads(self.rfile.read(tamanho))
+            corpo = self.rfile.read(tamanho)
+            if len(corpo) < tamanho:
+                raise ValueError("Corpo incompleto: conexao interrompida")
+            dados = json.loads(corpo)
             if not isinstance(dados, list):
-                raise ValueError("O corpo deve ser uma lista de pisos")
+                raise ValueError("O corpo deve ser uma lista")
             if self.path == "/api/pisos":
                 salvar_pisos(dados)
             else:
                 salvar_vendas(dados)
+        except (ConnectionResetError, ConnectionAbortedError):
+            return
         except (ValueError, json.JSONDecodeError) as erro:
             self.enviar_json(400, {"erro": str(erro)})
             return
 
         self.enviar_json(200, {"ok": True})
-
+        
     def do_POST(self):
         self.salvar_requisicao()
 

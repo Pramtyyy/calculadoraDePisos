@@ -822,13 +822,13 @@ function lerFotos(fotos) {
 function processarImagem(dataUrl, resolve, reject) {
     const imagem = new Image();
     imagem.addEventListener('load', function () {
-        const limite = 2400;
+        const limite = 1000;
         const escala = Math.min(1, limite / Math.max(imagem.width, imagem.height));
         const canvas = document.createElement('canvas');
         canvas.width = Math.max(1, Math.round(imagem.width * escala));
         canvas.height = Math.max(1, Math.round(imagem.height * escala));
         canvas.getContext('2d').drawImage(imagem, 0, 0, canvas.width, canvas.height);
-        resolve(canvas.toDataURL('image/jpeg', 0.9));
+        resolve(canvas.toDataURL('image/jpeg', 0.75));
     });
     imagem.addEventListener('error', reject);
     imagem.src = dataUrl;
