@@ -18,18 +18,33 @@ function Piso(nome, bitola, tonalidade, fotos, altura, largura, cor, textura, re
 
 const chavePisos = 'pisos';
 const chaveApi = 'apiUrl';
+const chaveVendas = 'vendas';
+const enderecoServidorPadrao = 'http://192.168.0.5:8000';
 let pisosEmMemoria = JSON.parse(localStorage.getItem(chavePisos)) || [];
+let vendasEmMemoria = JSON.parse(localStorage.getItem(chaveVendas)) || [];
 let apiUrl = window.location.protocol === 'file:'
-    ? 'http://192.168.0.15:8000'
+    ? (localStorage.getItem(chaveApi) || enderecoServidorPadrao)
     : (localStorage.getItem(chaveApi) || window.location.origin);
+if (apiUrl === 'http://192.168.0.15:8000') {
+    apiUrl = enderecoServidorPadrao;
+}
 localStorage.setItem(chaveApi, apiUrl);
 const modal = document.getElementById('modal');
 const telaPrincipal = document.getElementById('telaPrincipal');
 const telaCadastro = document.getElementById('telaCadastro');
 const telaOrcamento = document.getElementById('telaOrcamento');
+const telaRelatorios = document.getElementById('telaRelatorios');
 const contadorOrcamento = document.getElementById('contadorOrcamento');
 const irParaCadastro = document.getElementById('irParaCadastro');
 const irParaOrcamento = document.getElementById('irParaOrcamento');
+const irParaRelatorios = document.getElementById('irParaRelatorios');
+const voltarRelatorios = document.getElementById('voltarRelatorios');
+const dataInicialRelatorio = document.getElementById('dataInicialRelatorio');
+const dataFinalRelatorio = document.getElementById('dataFinalRelatorio');
+const buscaRelatorio = document.getElementById('buscaRelatorio');
+const listaRelatorioVendas = document.getElementById('listaRelatorioVendas');
+const totalVendasRelatorio = document.getElementById('totalVendasRelatorio');
+const valorVendasRelatorio = document.getElementById('valorVendasRelatorio');
 const pisosForm = document.getElementById('pisosForm');
 const abrirFormulario = document.getElementById('abrirFormulario');
 const alternarInativos = document.getElementById('alternarInativos');
@@ -70,6 +85,7 @@ const limparOrcamento = document.getElementById('limparOrcamento');
 const quantidadeArgamassa = document.getElementById('quantidadeArgamassa');
 const fotosInput = document.getElementById('fotos');
 const abrirCamera = document.getElementById('abrirCamera');
+const alternarFundo = document.getElementById('alternarFundo');
 let indicePisoSelecionado = null;
 let indicePisoEditando = null;
 let itensOrcamento = [];
@@ -96,11 +112,20 @@ irParaOrcamento.addEventListener('click', function () {
     mostrarTela('orcamento');
 });
 
+irParaRelatorios.addEventListener('click', function () {
+    exibirRelatorio();
+    mostrarTela('relatorios');
+});
+
 voltarCadastro.addEventListener('click', function () {
     mostrarTela('principal');
 });
 
 voltarOrcamento.addEventListener('click', function () {
+    mostrarTela('principal');
+});
+
+voltarRelatorios.addEventListener('click', function () {
     mostrarTela('principal');
 });
 
@@ -119,6 +144,22 @@ window.tratarVoltarAndroid = function () {
 
     return false;
 };
+
+function aplicarTema(tema) {
+    const escuro = tema === 'escuro';
+    document.body.classList.toggle('temaEscuro', escuro);
+    alternarFundo.textContent = escuro ? '\u263c' : '\u2600';
+    alternarFundo.setAttribute('aria-pressed', String(escuro));
+    localStorage.setItem('tema', escuro ? 'escuro' : 'claro');
+}
+
+function alternarTema() {
+    const temaAtual = document.body.classList.contains('temaEscuro') ? 'claro' : 'escuro';
+    aplicarTema(temaAtual);
+}
+
+alternarFundo.addEventListener('click', alternarTema);
+aplicarTema(localStorage.getItem('tema') || 'claro');
 
 function fecharAoTocarFora(dialog, aoFechar) {
     dialog.addEventListener('click', function (event) {
@@ -253,6 +294,27 @@ function persistirPisos(pisos) {
     });
 }
 
+async function persistirVendas(vendas) {
+    vendasEmMemoria = vendas;
+    localStorage.setItem(chaveVendas, JSON.stringify(vendas));
+    if (!apiUrl) {
+        return;
+    }
+    const resposta = await fetch(`${apiUrl}/api/vendas`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(vendas)
+    });
+    if (!resposta.ok) {
+        throw new Error(`HTTP ${resposta.status}`);
+    }
+}
+
+function avisarFalhaSincronizacao(erro) {
+        console.warn('Vendas mantidas localmente; falha ao sincronizar.', erro);
+        window.alert('A venda foi salva neste aparelho, mas não foi possível salvar o relatório no servidor.');
+}
+
 async function carregarPisos() {
     if (!apiUrl && window.location.protocol === 'file:' && !localStorage.getItem(chaveApi)) {
         const endereco = window.prompt(
@@ -270,16 +332,47 @@ async function carregarPisos() {
     }
 
     try {
-        const resposta = await fetch(`${apiUrl}/api/pisos`);
+        const [resposta, respostaVendas] = await Promise.all([
+            fetch(`${apiUrl}/api/pisos`),
+            fetch(`${apiUrl}/api/vendas`)
+        ]);
         if (!resposta.ok) {
             throw new Error(`HTTP ${resposta.status}`);
         }
         pisosEmMemoria = await resposta.json();
+        if (respostaVendas.ok) {
+            vendasEmMemoria = await respostaVendas.json();
+            localStorage.setItem(chaveVendas, JSON.stringify(vendasEmMemoria));
+        }
         localStorage.setItem(chavePisos, JSON.stringify(pisosEmMemoria));
         exibirPisos();
     } catch (erro) {
         console.warn('Servidor indisponível; usando dados locais.', erro);
     }
+}
+
+function exibirRelatorio() {
+    const inicio = dataInicialRelatorio.value;
+    const fim = dataFinalRelatorio.value;
+    const busca = buscaRelatorio.value.trim().toLocaleLowerCase();
+    const vendasFiltradas = vendasEmMemoria.filter(function (venda) {
+        const data = venda.data.slice(0, 10);
+        const texto = `${data} ${venda.itens.map(function (item) { return item.nome; }).join(' ')}`.toLocaleLowerCase();
+        return (!inicio || data >= inicio) && (!fim || data <= fim) && (!busca || texto.includes(busca));
+    });
+    listaRelatorioVendas.innerHTML = '';
+    let total = 0;
+    vendasFiltradas.forEach(function (venda) {
+        total += Number(venda.total) || 0;
+        const linha = document.createElement('li');
+        linha.className = 'itemRelatorio';
+        linha.textContent = `${new Date(venda.data).toLocaleString('pt-BR')} - ${venda.itens.map(function (item) {
+            return `${item.nome} (${item.quantidade} ${item.unidade})`;
+        }).join(', ')} - ${formatarMoeda(venda.total)}`;
+        listaRelatorioVendas.appendChild(linha);
+    });
+    totalVendasRelatorio.textContent = `${vendasFiltradas.length} ${vendasFiltradas.length === 1 ? 'venda' : 'vendas'}`;
+    valorVendasRelatorio.textContent = formatarMoeda(total);
 }
 
 function abrirDetalhesPiso(event, modo) {
@@ -608,6 +701,20 @@ finalizarOrcamento.addEventListener('click', async function () {
         piso.pecasAbertas = totalRestante % pecasPorCaixa;
     });
 
+    const totalVenda = itensOrcamento.reduce(function (total, item) {
+        return total + item.total;
+    }, 0);
+    try {
+        await persistirVendas(vendasEmMemoria.concat({
+        data: new Date().toISOString(),
+        itens: itensOrcamento.map(function (item) {
+            return { nome: item.nome, quantidade: item.quantidade, unidade: item.unidade, total: item.total };
+        }),
+        total: totalVenda
+        }));
+    } catch (erro) {
+        avisarFalhaSincronizacao(erro);
+    }
     persistirPisos(pisos);
     itensOrcamento = [];
     exibirOrcamento();
@@ -720,6 +827,9 @@ function processarImagem(dataUrl, resolve, reject) {
 
 buscaPisos.addEventListener('input', exibirPisos);
 buscaPisosOrcamento.addEventListener('input', exibirPisos);
+dataInicialRelatorio.addEventListener('input', exibirRelatorio);
+dataFinalRelatorio.addEventListener('input', exibirRelatorio);
+buscaRelatorio.addEventListener('input', exibirRelatorio);
 
 alternarInativos.addEventListener('click', function () {
     mostrarInativos = !mostrarInativos;
@@ -746,6 +856,7 @@ if (window.visualViewport) {
 
 exibirPisos();
 exibirOrcamento();
+exibirRelatorio();
 carregarPisos();
 
 

@@ -1,29 +1,40 @@
 package br.com.calculadordepisos;
 
+import android.Manifest;
 import android.app.Activity;
-import android.os.Bundle;
-import android.view.View;
-import android.view.Window;
-import android.view.WindowInsets;
-import android.util.TypedValue;
-import android.webkit.WebSettings;
-import android.webkit.WebView;
-import android.webkit.WebViewClient;
-import android.webkit.WebChromeClient;
-import android.webkit.ValueCallback;
-import android.webkit.JavascriptInterface;
-import android.net.Uri;
-import android.content.Intent;
 import android.content.ContentValues;
+import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
+import android.graphics.Insets;
 import android.graphics.Matrix;
-import android.media.ExifInterface;
+import android.net.Uri;
+import android.os.Build;
+import android.os.Bundle;
+import android.provider.MediaStore;
+import android.support.annotation.NonNull;
+import android.support.media.ExifInterface;
 import android.util.Base64;
+import android.util.TypedValue;
+import android.view.View;
+import android.view.ViewGroup;
+import android.view.Window;
+import android.view.WindowInsets;
+import android.view.WindowInsetsController;
+import android.view.WindowManager;
+import android.webkit.JavascriptInterface;
+import android.webkit.WebChromeClient;
+import android.webkit.WebSettings;
+import android.webkit.WebView;
+import android.webkit.WebViewClient;
+import android.webkit.ValueCallback;
+import android.widget.FrameLayout;
+
+import org.json.JSONArray;
+
 import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
-import org.json.JSONArray;
 
 public class MainActivity extends Activity {
     private static final int REQUEST_FILE_CHOOSER = 1001;
@@ -34,16 +45,60 @@ public class MainActivity extends Activity {
     private ValueCallback<Uri[]> filePathCallback;
     private Uri cameraOutputUri;
 
+    @SuppressWarnings("deprecation")
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         Window window = getWindow();
-        window.setSoftInputMode(android.view.WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            window.setDecorFitsSystemWindows(false);
+            WindowInsetsController controller = window.getDecorView().getWindowInsetsController();
+            if (controller != null) {
+                controller.setSystemBarsAppearance(
+                    WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS,
+                    WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS
+                );
+            }
+        } else {
+            window.getDecorView().setSystemUiVisibility(View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR);
+        }
+        window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE);
         window.setStatusBarColor(0xFFFFFFFF);
         window.setNavigationBarColor(0xFFFFFFFF);
-        window.getDecorView().setSystemUiVisibility(View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR);
 
+        FrameLayout root = new FrameLayout(this);
         webView = new WebView(this);
+        root.addView(webView, new FrameLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT,
+            ViewGroup.LayoutParams.MATCH_PARENT
+        ));
+
+        root.setOnApplyWindowInsetsListener((view, insets) -> {
+            int extraTopSpace = (int) TypedValue.applyDimension(
+                    TypedValue.COMPLEX_UNIT_DIP,
+                    24,
+                    view.getResources().getDisplayMetrics()
+            );
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                Insets systemBars = insets.getInsets(WindowInsets.Type.systemBars());
+                Insets teclado = insets.getInsets(WindowInsets.Type.ime());
+                view.setPadding(
+                        systemBars.left,
+                        systemBars.top + extraTopSpace,
+                        systemBars.right,
+                        Math.max(systemBars.bottom, teclado.bottom)
+                );
+            } else {
+                view.setPadding(
+                        insets.getSystemWindowInsetLeft(),
+                        insets.getSystemWindowInsetTop() + extraTopSpace,
+                        insets.getSystemWindowInsetRight(),
+                        insets.getSystemWindowInsetBottom()
+                );
+            }
+            return insets;
+        });
+
         WebSettings settings = webView.getSettings();
         settings.setJavaScriptEnabled(true);
         settings.setDomStorageEnabled(true);
@@ -54,6 +109,7 @@ public class MainActivity extends Activity {
 
         webView.addJavascriptInterface(new Object() {
             @JavascriptInterface
+            @SuppressWarnings("unused")
             public void open() {
                 Intent intent = new Intent(Intent.ACTION_GET_CONTENT);
                 intent.addCategory(Intent.CATEGORY_OPENABLE);
@@ -75,11 +131,11 @@ public class MainActivity extends Activity {
 
         webView.addJavascriptInterface(new Object() {
             @JavascriptInterface
+            @SuppressWarnings("unused")
             public void open() {
-                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M
-                    && checkSelfPermission(android.Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
+                if (checkSelfPermission(Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
                     requestPermissions(
-                        new String[] { android.Manifest.permission.CAMERA },
+                        new String[] { Manifest.permission.CAMERA },
                         REQUEST_CAMERA_PERMISSION
                     );
                     return;
@@ -123,72 +179,59 @@ public class MainActivity extends Activity {
                 return true;
             }
         });
-        webView.setFitsSystemWindows(true);
-        webView.setOnApplyWindowInsetsListener((view, insets) -> {
-            int extraTopSpace = (int) TypedValue.applyDimension(
-                TypedValue.COMPLEX_UNIT_DIP,
-                24,
-                view.getResources().getDisplayMetrics()
-            );
-            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
-                android.graphics.Insets systemBars = insets.getInsets(WindowInsets.Type.systemBars());
-                view.setPadding(systemBars.left, systemBars.top + extraTopSpace, systemBars.right, systemBars.bottom);
-            } else {
-                view.setPadding(
-                    insets.getSystemWindowInsetLeft(),
-                    insets.getSystemWindowInsetTop() + extraTopSpace,
-                    insets.getSystemWindowInsetRight(),
-                    insets.getSystemWindowInsetBottom()
-                );
-            }
-            return insets;
-        });
         webView.setWebViewClient(new WebViewClient());
         webView.loadUrl("file:///android_asset/index.html");
-        setContentView(webView);
+        setContentView(root);
     }
+
+
 
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
-        if (requestCode == REQUEST_CAMERA) {
-            JSONArray arquivos = new JSONArray();
-            if (resultCode == RESULT_OK && cameraOutputUri != null) {
-                adicionarArquivo(arquivos, cameraOutputUri);
-            } else if (cameraOutputUri != null) {
-                getContentResolver().delete(cameraOutputUri, null, null);
-            }
-            cameraOutputUri = null;
-            enviarArquivosBase64(arquivos);
-            return;
-        }
-        if (requestCode == REQUEST_ANDROID_PICKER) {
-            enviarArquivosParaWebView(resultCode, data);
-            return;
-        }
-        if (requestCode == REQUEST_FILE_CHOOSER) {
-            if (filePathCallback != null) {
-                Uri[] results = null;
-                if (resultCode == RESULT_OK && data != null) {
-                    if (data.getClipData() != null) {
-                        int count = data.getClipData().getItemCount();
-                        results = new Uri[count];
-                        for (int index = 0; index < count; index++) {
-                            results[index] = data.getClipData().getItemAt(index).getUri();
-                        }
-                    } else if (data.getData() != null) {
-                        results = new Uri[] { data.getData() };
-                    }
+        switch (requestCode) {
+            case REQUEST_CAMERA: {
+                JSONArray arquivos = new JSONArray();
+                if (resultCode == RESULT_OK && cameraOutputUri != null) {
+                    adicionarArquivo(arquivos, cameraOutputUri);
+                } else if (cameraOutputUri != null) {
+                    getContentResolver().delete(cameraOutputUri, null, null);
                 }
-                filePathCallback.onReceiveValue(results);
-                filePathCallback = null;
+                cameraOutputUri = null;
+                enviarArquivosBase64(arquivos);
+                break;
             }
-            return;
+            case REQUEST_ANDROID_PICKER:
+                enviarArquivosParaWebView(resultCode, data);
+                break;
+            case REQUEST_FILE_CHOOSER: {
+                if (filePathCallback != null) {
+                    Uri[] results = (resultCode == RESULT_OK && data != null) ? getUrisFromIntent(data) : null;
+                    filePathCallback.onReceiveValue(results);
+                    filePathCallback = null;
+                }
+                break;
+            }
+            default:
+                super.onActivityResult(requestCode, resultCode, data);
         }
-        super.onActivityResult(requestCode, resultCode, data);
+    }
+
+    private Uri[] getUrisFromIntent(Intent data) {
+        if (data.getClipData() != null) {
+            int count = data.getClipData().getItemCount();
+            Uri[] results = new Uri[count];
+            for (int i = 0; i < count; i++) {
+                results[i] = data.getClipData().getItemAt(i).getUri();
+            }
+            return results;
+        } else if (data.getData() != null) {
+            return new Uri[]{data.getData()};
+        }
+        return null;
     }
 
     @Override
-    public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
+    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
         if (requestCode == REQUEST_CAMERA_PERMISSION
             && grantResults.length > 0
@@ -198,19 +241,19 @@ public class MainActivity extends Activity {
     }
 
     private void abrirCameraNativa() {
-        Intent intent = new Intent(android.provider.MediaStore.ACTION_IMAGE_CAPTURE);
+        Intent intent = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
         ContentValues valores = new ContentValues();
-        valores.put(android.provider.MediaStore.Images.Media.DISPLAY_NAME, "piso_" + System.currentTimeMillis() + ".jpg");
-        valores.put(android.provider.MediaStore.Images.Media.MIME_TYPE, "image/jpeg");
-        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
-            valores.put(android.provider.MediaStore.Images.Media.RELATIVE_PATH, "Pictures/CalculadorDePisos");
+        valores.put(MediaStore.Images.Media.DISPLAY_NAME, "piso_" + System.currentTimeMillis() + ".jpg");
+        valores.put(MediaStore.Images.Media.MIME_TYPE, "image/jpeg");
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            valores.put(MediaStore.Images.Media.RELATIVE_PATH, "Pictures/CalculadorDePisos");
         }
         cameraOutputUri = getContentResolver().insert(
-            android.provider.MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
+            MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
             valores
         );
         try {
-            intent.putExtra(android.provider.MediaStore.EXTRA_OUTPUT, cameraOutputUri);
+            intent.putExtra(MediaStore.EXTRA_OUTPUT, cameraOutputUri);
             intent.addFlags(Intent.FLAG_GRANT_WRITE_URI_PERMISSION | Intent.FLAG_GRANT_READ_URI_PERMISSION);
             startActivityForResult(intent, REQUEST_CAMERA);
         } catch (Exception ignored) {
@@ -234,8 +277,8 @@ public class MainActivity extends Activity {
         if (resultCode == RESULT_OK && data != null) {
             if (data.getClipData() != null) {
                 int count = Math.min(data.getClipData().getItemCount(), 3);
-                for (int index = 0; index < count; index++) {
-                    adicionarArquivo(arquivos, data.getClipData().getItemAt(index).getUri());
+                for (int i = 0; i < count; i++) {
+                    adicionarArquivo(arquivos, data.getClipData().getItemAt(i).getUri());
                 }
             } else if (data.getData() != null) {
                 adicionarArquivo(arquivos, data.getData());
@@ -294,7 +337,7 @@ public class MainActivity extends Activity {
     }
 
     private Bitmap aplicarOrientacao(Bitmap bitmap, Uri uri) {
-        if (android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.N) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.N) {
             return bitmap;
         }
         try (InputStream entrada = getContentResolver().openInputStream(uri)) {
@@ -331,6 +374,7 @@ public class MainActivity extends Activity {
         }
     }
 
+    @SuppressWarnings("deprecation")
     @Override
     public void onBackPressed() {
         webView.evaluateJavascript(

@@ -1,3 +1,5 @@
+@file:Suppress("DEPRECATION")
+
 import org.gradle.api.tasks.Copy
 
 plugins {
@@ -29,4 +31,7 @@ val syncWebAssets by tasks.registering(Copy::class) {
 
 tasks.named("preBuild") {
     dependsOn(syncWebAssets)
+}
+dependencies {
+    implementation("com.android.support:exifinterface:28.0.0")
 }

@@ -1,5 +1,6 @@
 import json
 import sqlite3
+from functools import partial
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
@@ -13,7 +14,10 @@ def inicializar_banco():
         banco.execute(
             "CREATE TABLE IF NOT EXISTS app_data (id INTEGER PRIMARY KEY CHECK (id = 1), pisos TEXT NOT NULL)"
         )
-        banco.execute("INSERT OR IGNORE INTO app_data (id, pisos) VALUES (1, '[]')")
+        colunas = [linha[1] for linha in banco.execute("PRAGMA table_info(app_data)")]
+        if "vendas" not in colunas:
+            banco.execute("ALTER TABLE app_data ADD COLUMN vendas TEXT NOT NULL DEFAULT '[]'")
+        banco.execute("INSERT OR IGNORE INTO app_data (id, pisos, vendas) VALUES (1, '[]', '[]')")
 
 
 def ler_pisos():
@@ -27,6 +31,20 @@ def salvar_pisos(pisos):
         banco.execute(
             "UPDATE app_data SET pisos = ? WHERE id = 1",
             (json.dumps(pisos, ensure_ascii=False),),
+        )
+
+
+def ler_vendas():
+    with sqlite3.connect(DATABASE) as banco:
+        registro = banco.execute("SELECT vendas FROM app_data WHERE id = 1").fetchone()
+    return json.loads(registro[0])
+
+
+def salvar_vendas(vendas):
+    with sqlite3.connect(DATABASE) as banco:
+        banco.execute(
+            "UPDATE app_data SET vendas = ? WHERE id = 1",
+            (json.dumps(vendas, ensure_ascii=False),),
         )
 
 
@@ -51,19 +69,25 @@ class AppHandler(SimpleHTTPRequestHandler):
         if self.path == "/api/pisos":
             self.enviar_json(200, ler_pisos())
             return
+        if self.path == "/api/vendas":
+            self.enviar_json(200, ler_vendas())
+            return
         super().do_GET()
 
     def salvar_requisicao(self):
-        if self.path != "/api/pisos":
+        if self.path not in ("/api/pisos", "/api/vendas"):
             self.enviar_json(404, {"erro": "Rota nao encontrada"})
             return
 
         try:
             tamanho = int(self.headers.get("Content-Length", "0"))
-            pisos = json.loads(self.rfile.read(tamanho))
-            if not isinstance(pisos, list):
+            dados = json.loads(self.rfile.read(tamanho))
+            if not isinstance(dados, list):
                 raise ValueError("O corpo deve ser uma lista de pisos")
-            salvar_pisos(pisos)
+            if self.path == "/api/pisos":
+                salvar_pisos(dados)
+            else:
+                salvar_vendas(dados)
         except (ValueError, json.JSONDecodeError) as erro:
             self.enviar_json(400, {"erro": str(erro)})
             return
@@ -79,7 +103,16 @@ class AppHandler(SimpleHTTPRequestHandler):
 
 if __name__ == "__main__":
     inicializar_banco()
-    servidor = ThreadingHTTPServer(("0.0.0.0", 8000), AppHandler)
+    handler = partial(AppHandler, directory=str(ROOT))
+    try:
+        servidor = ThreadingHTTPServer(("0.0.0.0", 8000), handler)
+    except OSError as erro:
+        if getattr(erro, "winerror", None) == 10048 or erro.errno == 98:
+            print("A porta 8000 ja esta em uso. Feche o outro servidor ou use a instancia que ja esta rodando.")
+        else:
+            print(f"Nao foi possivel iniciar o servidor: {erro}")
+        raise SystemExit(1)
+
     print("Servidor em http://0.0.0.0:8000")
     print("Use no celular o endereco http://IP_DESTE_COMPUTADOR:8000")
     servidor.serve_forever()

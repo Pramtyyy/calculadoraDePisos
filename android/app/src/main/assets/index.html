@@ -10,6 +10,7 @@
 <body>
     <header class="appHeader">
         <h1>Calculador de Pisos</h1>
+        <button type="button" id="alternarFundo" class="botaoFundo" aria-label="Alternar tema" title="Alternar tema">&#9788;</button>
     </header>
 
     <main>
@@ -27,8 +28,36 @@
                         <strong>Fazer orçamento</strong>
                         <small>Escolher pisos e completar vendas</small>
                     </button>
+                    <button type="button" id="irParaRelatorios" class="opcaoInicio">
+                        <span class="opcaoIcone">&#128203;</span>
+                        <strong>Ver relatórios</strong>
+                        <small>Acessar vendas realizadas</small>
+                    </button>
                 </div>
             </div>
+        </section>
+
+        <section id="telaRelatorios" class="tela">
+            <div class="telaCabecalho">
+                <div>
+                    <p class="eyebrow">Vendas</p>
+                    <h2>Relatório de vendas</h2>
+                </div>
+                <button type="button" id="voltarRelatorios" class="botaoVoltar">Voltar</button>
+            </div>
+            <div class="filtrosRelatorio">
+                <label for="dataInicialRelatorio">De:</label>
+                <input type="date" id="dataInicialRelatorio">
+                <label for="dataFinalRelatorio">Até:</label>
+                <input type="date" id="dataFinalRelatorio">
+                <label for="buscaRelatorio">Pesquisar:</label>
+                <input type="search" id="buscaRelatorio" placeholder="Pesquisar por produto">
+            </div>
+            <div class="resumoRelatorio">
+                <strong id="totalVendasRelatorio">0 vendas</strong>
+                <strong id="valorVendasRelatorio">R$ 0,00</strong>
+            </div>
+            <ul id="listaRelatorioVendas"></ul>
         </section>
 
         <section id="telaCadastro" class="tela">
