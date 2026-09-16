@@ -151,6 +151,10 @@ function aplicarTema(tema) {
     alternarFundo.textContent = escuro ? '\u263c' : '\u2600';
     alternarFundo.setAttribute('aria-pressed', String(escuro));
     localStorage.setItem('tema', escuro ? 'escuro' : 'claro');
+
+    if (window.AndroidTema) {
+        window.AndroidTema.aplicar(escuro);
+    }
 }
 
 function alternarTema() {
@@ -229,26 +233,40 @@ function avisarFalhaFoto() {
     window.alert('Não foi possível carregar a foto.');
 }
 
-window.onAndroidFilesSelected = function (arquivos) {
-    if (!Array.isArray(arquivos) || arquivos.length === 0) {
+async function enviarFotoServidor(dataUrl) {
+    const resposta = await fetch(`${apiUrl}/api/foto`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ foto: dataUrl })
+    });
+    if (!resposta.ok) {
+        throw new Error(`HTTP ${resposta.status}`);
+    }
+    const dados = await resposta.json();
+    return `fotos/${dados.arquivo}`; // caminho relativo, guardado no piso
+}
+
+function resolverUrlFoto(foto) {
+    if (!foto) return '';
+    if (/^(?:[a-z][a-z0-9+.-]*:|\/\/)/i.test(foto)) return foto;
+    return apiUrl ? `${apiUrl.replace(/\/+$/, '')}/${foto.replace(/^\/+/, '')}` : foto;
+}
+
+window.onAndroidFilesSelected = async function (urls) {
+    if (!Array.isArray(urls) || urls.length === 0) {
         fotosAndroidSelecionadas = [];
         return;
     }
-    fotosAndroidSelecionadas = arquivos.slice(0, 3);
+    // baixa cada foto local (via URL interceptada) e converte pra File
+    const arquivos = await Promise.all(urls.slice(0, 3).map(async function (url, index) {
+        const resposta = await fetch(url);
+        const blob = await resposta.blob();
+        return new File([blob], `foto-${index + 1}.jpg`, { type: 'image/jpeg' });
+    }));
+    fotosAndroidSelecionadas = arquivos;
     const transferencia = new DataTransfer();
-    fotosAndroidSelecionadas.forEach(function (dataUrl, index) {
-        const partes = dataUrl.split(',');
-        const mime = partes[0].match(/:(.*?);/)[1];
-        const bytes = atob(partes[1]);
-        const dados = new Uint8Array(bytes.length);
-        for (let indice = 0; indice < bytes.length; indice++) {
-            dados[indice] = bytes.charCodeAt(indice);
-        }
-        transferencia.items.add(new File(
-            [new Blob([dados], { type: mime })],
-            `foto-${index + 1}.jpg`,
-            { type: mime }
-        ));
+    arquivos.forEach(function (arquivo) {
+        transferencia.items.add(arquivo);
     });
     fotosInput.files = transferencia.files;
     fotosInput.dispatchEvent(new Event('change', { bubbles: true }));
@@ -476,7 +494,7 @@ function exibirGaleria(container, fotos) {
     const galeria = document.createElement('div');
     galeria.className = 'galeria';
     const imagem = document.createElement('img');
-    imagem.src = fotosValidas[0];
+    imagem.src = resolverUrlFoto(fotosValidas[0]);
     imagem.alt = 'Foto do piso';
     imagem.loading = 'eager';
     imagem.addEventListener('click', function (event) {
@@ -491,7 +509,7 @@ function abrirGaleria(fotos) {
     galeriaAmpliada.innerHTML = '';
     fotos.slice(0, 3).forEach(function (foto) {
         const imagem = document.createElement('img');
-        imagem.src = foto;
+        imagem.src = resolverUrlFoto(foto);
         imagem.alt = 'Foto ampliada do piso';
         galeriaAmpliada.appendChild(imagem);
     });
@@ -808,7 +826,6 @@ function lerFotos(fotos) {
                 processarImagem(foto, resolve, reject);
                 return;
             }
-
             const leitor = new FileReader();
             leitor.addEventListener('load', function () {
                 processarImagem(leitor.result, resolve, reject);
@@ -816,7 +833,21 @@ function lerFotos(fotos) {
             leitor.addEventListener('error', reject);
             leitor.readAsDataURL(foto);
         });
-    }));
+    })).then(async function (dataUrls) {
+        if (!apiUrl) {
+            return dataUrls; // sem servidor: mantém base64 (funciona, mas com limite de localStorage)
+        }
+        const resultados = [];
+        for (const dataUrl of dataUrls) {
+            try {
+                resultados.push(await enviarFotoServidor(dataUrl));
+            } catch (erro) {
+                console.warn('Falha ao enviar foto ao servidor; usando local.', erro);
+                resultados.push(dataUrl);
+            }
+        }
+        return resultados;
+    });
 }
 
 function processarImagem(dataUrl, resolve, reject) {

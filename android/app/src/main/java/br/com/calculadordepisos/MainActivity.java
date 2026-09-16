@@ -37,6 +37,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
 
 public class MainActivity extends Activity {
+    private static final String FOTO_HOST = "https://fotoslocais.calculadordepisos/";
     private static final int REQUEST_FILE_CHOOSER = 1001;
     private static final int REQUEST_ANDROID_PICKER = 1002;
     private static final int REQUEST_CAMERA = 1003;
@@ -55,7 +56,7 @@ public class MainActivity extends Activity {
             WindowInsetsController controller = window.getDecorView().getWindowInsetsController();
             if (controller != null) {
                 controller.setSystemBarsAppearance(
-                    WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS,
+                    WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS ,
                     WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS
                 );
             }
@@ -74,30 +75,47 @@ public class MainActivity extends Activity {
         ));
 
         root.setOnApplyWindowInsetsListener((view, insets) -> {
-            int extraTopSpace = (int) TypedValue.applyDimension(
-                    TypedValue.COMPLEX_UNIT_DIP,
-                    24,
-                    view.getResources().getDisplayMetrics()
-            );
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
                 Insets systemBars = insets.getInsets(WindowInsets.Type.systemBars());
                 Insets teclado = insets.getInsets(WindowInsets.Type.ime());
                 view.setPadding(
                         systemBars.left,
-                        systemBars.top + extraTopSpace,
+                        systemBars.top,
                         systemBars.right,
                         Math.max(systemBars.bottom, teclado.bottom)
                 );
             } else {
                 view.setPadding(
                         insets.getSystemWindowInsetLeft(),
-                        insets.getSystemWindowInsetTop() + extraTopSpace,
+                        insets.getSystemWindowInsetTop(),
                         insets.getSystemWindowInsetRight(),
                         insets.getSystemWindowInsetBottom()
                 );
             }
             return insets;
         });
+
+        webView.setWebViewClient(new WebViewClient() {
+            @Override
+            public android.webkit.WebResourceResponse shouldInterceptRequest(
+                    WebView view, android.webkit.WebResourceRequest request
+            ) {
+                String url = request.getUrl().toString();
+                if (url.startsWith(FOTO_HOST)) {
+                    String nomeArquivo = url.substring(FOTO_HOST.length());
+                    java.io.File arquivo = new java.io.File(new java.io.File(getFilesDir(), "fotos"), nomeArquivo);
+                    if (arquivo.exists()) {
+                        try {
+                            return new android.webkit.WebResourceResponse(
+                                    "image/jpeg", null, new java.io.FileInputStream(arquivo)
+                            );
+                        } catch (Exception ignored) {}
+                    }
+                }
+                return super.shouldInterceptRequest(view, request);
+            }
+        });
+
 
         WebSettings settings = webView.getSettings();
         settings.setJavaScriptEnabled(true);
@@ -131,6 +149,13 @@ public class MainActivity extends Activity {
 
         webView.addJavascriptInterface(new Object() {
             @JavascriptInterface
+            public void aplicar(boolean escuro) {
+                runOnUiThread(() -> aplicarTemaBarras(escuro));
+            }
+        }, "AndroidTema");
+
+        webView.addJavascriptInterface(new Object() {
+            @JavascriptInterface
             @SuppressWarnings("unused")
             public void open() {
                 if (checkSelfPermission(Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
@@ -143,6 +168,8 @@ public class MainActivity extends Activity {
                 abrirCameraNativa();
             }
         }, "AndroidCamera");
+
+
 
         webView.setWebChromeClient(new WebChromeClient() {
             @Override
@@ -179,7 +206,6 @@ public class MainActivity extends Activity {
                 return true;
             }
         });
-        webView.setWebViewClient(new WebViewClient());
         webView.loadUrl("file:///android_asset/index.html");
         setContentView(root);
     }
@@ -238,6 +264,28 @@ public class MainActivity extends Activity {
             && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
             abrirCameraNativa();
         }
+    }
+
+    private void aplicarTemaBarras(boolean escuro) {
+        Window window = getWindow();
+        int corBarras = escuro ? 0xFF1e1e1e : 0xFFFFFFFF;
+        window.setStatusBarColor(corBarras);
+        window.setNavigationBarColor(corBarras);
+        webView.setBackgroundColor(corBarras); // <- essa linha resolve o extraTopSpace
+
+        int flags = window.getDecorView().getSystemUiVisibility();
+        if (escuro) {
+            flags &= ~View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR;
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+                flags &= ~View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR;
+            }
+        } else {
+            flags |= View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR;
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+                flags |= View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR;
+            }
+        }
+        window.getDecorView().setSystemUiVisibility(flags);
     }
 
     private void abrirCameraNativa() {
@@ -328,12 +376,14 @@ public class MainActivity extends Activity {
     }
 
     private void adicionarBitmap(JSONArray arquivos, Bitmap bitmap) {
-        ByteArrayOutputStream saida = new ByteArrayOutputStream();
-        bitmap.compress(Bitmap.CompressFormat.JPEG, 82, saida);
-        arquivos.put("data:image/jpeg;base64," + Base64.encodeToString(
-            saida.toByteArray(),
-            Base64.NO_WRAP
-        ));
+        java.io.File pastaFotos = new java.io.File(getFilesDir(), "fotos");
+        if (!pastaFotos.exists()) pastaFotos.mkdirs();
+        String nomeArquivo = "foto_" + System.currentTimeMillis() + ".jpg";
+        java.io.File arquivo = new java.io.File(pastaFotos, nomeArquivo);
+        try (java.io.FileOutputStream saida = new java.io.FileOutputStream(arquivo)) {
+            bitmap.compress(Bitmap.CompressFormat.JPEG, 82, saida);
+            arquivos.put(FOTO_HOST + nomeArquivo);
+        } catch (Exception ignored) {}
     }
 
     private Bitmap aplicarOrientacao(Bitmap bitmap, Uri uri) {
