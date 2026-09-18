@@ -99,6 +99,7 @@ def total_pecas(piso):
 def validar_piso(raw, verificar_arquivos=True):
     if not isinstance(raw, dict): raise ValueError('Piso inválido')
     item = {k: texto(raw.get(k), k) for k in ('id','nome')}
+    item['modeloId'] = texto(raw.get('modeloId', item['id']), 'modeloId')
     for key in ('bitola','tonalidade','cor','textura','resistencia'):
         value = raw.get(key, '')
         if not isinstance(value,(str,int,float)) or len(str(value))>200: raise ValueError(f'{key}: valor inválido')
@@ -138,6 +139,15 @@ def aplicar_operacao(state, op):
         old = encontrar(state['pisos'], item['id'])
         expected = old.get('version',1) if old else 0
         if op.get('baseVersion') != expected: raise Conflict('Este piso foi alterado em outro aparelho. Revise as alterações pendentes.')
+        if old and 'modeloId' not in op['piso']:
+            item['modeloId'] = old.get('modeloId', old['id'])
+        def lote_codigo(value):
+            value = str(value).strip()
+            return str(int(value)) if value.isascii() and value.isdigit() else value
+        if any(p['id'] != item['id'] and p.get('modeloId', p['id']) == item['modeloId']
+               and all(lote_codigo(p.get(k, '')) == lote_codigo(item[k]) for k in ('bitola', 'tonalidade'))
+               for p in state['pisos']):
+            raise Conflict('Já existe um lote com essa bitola e tonalidade neste modelo.')
         item['version'] = expected + 1
         delta = total_pecas(item) - (total_pecas(old) if old else 0)
         if old: state['pisos'][state['pisos'].index(old)] = item

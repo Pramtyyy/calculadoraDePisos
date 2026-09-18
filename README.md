@@ -19,6 +19,8 @@ A fila e a limpeza do rascunho são persistidas juntas ao finalizar uma venda. O
 
 ## Orçamentos e estoque
 
+- Cada modelo reúne seus lotes no mesmo card. **Adicionar lote** pede bitola e tonalidade e cria estoque zero; **Editar lote** permite informar as caixas e peças recebidas. No orçamento, **Escolher lote** identifica o estoque que será baixado. Cadastros antigos continuam como modelos individuais; não são agrupados automaticamente pelo nome.
+
 - Rascunho com cliente/telefone persiste no aparelho; orçamentos salvos sincronizam entre aparelhos.
 - Compartilhar abre o seletor do sistema; Imprimir/PDF usa a impressão do navegador ou Android.
 - Alerta de estoque é configurado em caixas por produto.

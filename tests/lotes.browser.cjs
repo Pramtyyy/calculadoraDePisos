@@ -1,0 +1,48 @@
+const {chromium} = require('playwright');
+const assert = require('node:assert/strict');
+(async () => {
+ const browser = await chromium.launch({channel:'msedge',headless:true});
+ try {
+  const page = await browser.newPage({viewport:{width:360,height:800}});
+  const errors = [];
+  page.on('pageerror', error => errors.push(error.message));
+  page.on('dialog', dialog => dialog.accept());
+  await page.goto('http://127.0.0.1:8765');
+  await page.locator('#chaveConfig').fill('test-token');
+  await page.locator('#configForm button[type=submit]').click();
+  await page.waitForFunction(() => DadosSeguros.status === 'Sincronizado');
+  await page.locator('#modalConfiguracoes [data-fechar]').click();
+  await page.locator('#irParaCadastro').click();
+  await page.locator('#abrirFormulario').click();
+  for (const [id,value] of Object.entries({nome:'MODELO LOTES',cor:'Branco',bitola:'1',tonalidade:'1',altura:'50',largura:'50',caixa:'1',pecasPorCaixa:'4',preco:'10',estoque:'10'})) await page.locator('#'+id).fill(value);
+  await page.locator('#salvarPiso').click();
+  await page.waitForFunction(() => !modal.open && !DadosSeguros.pending);
+  const card = page.locator('#listaPisosCadastro > li').filter({hasText:'MODELO LOTES'});
+  await card.getByRole('button',{name:'Adicionar lote',exact:true}).click();
+  await page.locator('#bitolaLote').fill('2');
+  await page.locator('#tonalidadeLote').fill('5');
+  await page.getByRole('button',{name:'Salvar lote',exact:true}).click();
+  await page.waitForFunction(() => !document.getElementById('modalLote').open && !DadosSeguros.pending);
+  assert.equal(await card.count(),1);
+  assert.equal(await card.locator('.linhaLote').count(),2);
+  await card.getByRole('button',{name:'Editar lote',exact:true}).last().click();
+  await page.locator('#estoque').fill('3');
+  await page.locator('#salvarPiso').click();
+  await page.waitForFunction(() => !modal.open && !DadosSeguros.pending);
+  await page.reload();
+  await page.waitForFunction(() => DadosSeguros.status === 'Sincronizado');
+  await page.locator('#irParaOrcamento').click();
+  const budget = page.locator('#listaPisosOrcamento > li').filter({hasText:'MODELO LOTES'});
+  assert.equal(await budget.count(),1);
+  await budget.getByRole('button',{name:'Escolher lote',exact:true}).last().click();
+  await page.locator('#venderPiso').click();
+  assert.match(await page.locator('#produtoVenda').textContent(),/Bitola: 2 - Tonalidade: 5/);
+  await page.locator('#quantidadeVenda').fill('1');
+  await page.locator('#vendaForm button[type=submit]').click();
+  assert.equal(await page.evaluate(() => itensOrcamento.at(-1).bitola),'2');
+  assert.deepEqual(await page.evaluate(() => obterPisos().filter(p => p.nome === 'MODELO LOTES').map(p => Number(p.estoque))),[10,3]);
+  assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth),true);
+  assert.deepEqual(errors,[]);
+  console.log('PASS lot creation, single card, separate stock editing, sync/reload, quotation selection and mobile width');
+ } finally { await browser.close(); }
+})().catch(error => {console.error(error);process.exit(1);});

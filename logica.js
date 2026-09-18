@@ -429,6 +429,34 @@ function exibirRelatorio() {
     valorVendasRelatorio.textContent = formatarMoeda(total);
 }
 
+function abrirDetalhesLote(pisoId, modo) {
+    const index = obterPisos().findIndex(p => p.id === pisoId);
+    if (index < 0) return;
+    mostrarDetalhesPiso(index, modo);
+}
+
+let origemLoteId = null;
+const modalLote = document.getElementById('modalLote');
+document.getElementById('loteForm').addEventListener('submit', function (event) {
+    event.preventDefault();
+    const pisos = obterPisos();
+    const origem = pisos.find(p => p.id === origemLoteId);
+    if (!origem) return window.alert('Modelo não encontrado. Reabra o cadastro.');
+    const bitola = document.getElementById('bitolaLote').value;
+    const tonalidade = document.getElementById('tonalidadeLote').value;
+    const modeloId = origem.modeloId || origem.id;
+    if (pisos.some(p => (p.modeloId || p.id) === modeloId && Number(p.bitola) === Number(bitola) && Number(p.tonalidade) === Number(tonalidade))) {
+        window.alert('Já existe um lote com essa bitola e tonalidade neste modelo.');
+        return;
+    }
+    try {
+        persistirPisos([...pisos, {...origem, id: DadosSeguros.id(), modeloId, version: 0,
+            bitola, tonalidade, estoque: 0, pecasAbertas: 0, ativo: true}]);
+        modalLote.close();
+        exibirPisos();
+    } catch (error) { window.alert(error.message); }
+});
+
 function abrirDetalhesPiso(event, modo) {
     if (event.target.closest('button')) {
         return;
@@ -436,11 +464,16 @@ function abrirDetalhesPiso(event, modo) {
 
     const item = event.target.closest('li');
     if (item) {
-        const piso = obterPisos()[Number(item.dataset.index)];
+        mostrarDetalhesPiso(Number(item.dataset.index), modo);
+    }
+}
+
+function mostrarDetalhesPiso(index, modo) {
+        const piso = obterPisos()[index];
         if (!piso) {
             return;
         }
-        indicePisoSelecionado = Number(item.dataset.index);
+        indicePisoSelecionado = index;
         pisoSelecionadoId = piso.id;
         editarPiso.style.display = modo === 'cadastro' ? '' : 'none';
         excluirPiso.style.display = modo === 'cadastro' ? '' : 'none';
@@ -465,7 +498,6 @@ function abrirDetalhesPiso(event, modo) {
         ].join('\n');
         exibirGaleria(galeriaDetalhes, piso.fotos);
         venderPiso.disabled = obterTotalPecas(piso) <= 0;
-    }
 }
 
 listaPisosCadastro.addEventListener('click', function (event) {
@@ -487,6 +519,7 @@ function renderizarListaPisos(lista, termoBusca, somenteAtivos) {
     lista.innerHTML = '';
     const pisos = obterPisos();
     const termo = termoBusca.trim().toLocaleLowerCase();
+    const modelosExibidos = new Set();
     pisos.forEach(function (piso, index) {
         if (somenteAtivos && piso.ativo === false) {
             return;
@@ -496,20 +529,51 @@ function renderizarListaPisos(lista, termoBusca, somenteAtivos) {
         if (termo && !textoBusca.includes(termo)) {
             return;
         }
+        const modeloId = piso.modeloId || piso.id;
+        if (modelosExibidos.has(modeloId)) return;
+        modelosExibidos.add(modeloId);
+        const lotes = pisos.filter(p => (p.modeloId || p.id) === modeloId && (!somenteAtivos || p.ativo !== false));
         const item = document.createElement('li');
         item.dataset.index = index;
         const card = document.createElement('div');
         card.className = 'pisoCard';
-        const pecasPorCaixa = Number(piso.pecasPorCaixa ?? 1);
-        const pecasAbertas = Number(piso.pecasAbertas ?? 0);
-        const estoque = `${piso.estoque ?? 0} caixas${pecasAbertas > 0 ? ` e ${pecasAbertas} peças` : ''}`;
         const informacoes = document.createElement('div');
         informacoes.className = 'pisoInformacoes';
-        const situacao = piso.ativo === false ? ' - INATIVO' : (Number(piso.estoqueMinimo) > 0 && obterTotalPecas(piso) <= Number(piso.estoqueMinimo) * Number(piso.pecasPorCaixa) ? ' - ESTOQUE BAIXO' : '');
-        informacoes.textContent = `${piso.nome}${situacao} - ${piso.bitola ?? '-'}/${piso.tonalidade ?? '-'} - ${formatarMoeda(piso.preco)}/m² - Estoque: ${estoque} - ${calcularAreaTotalPiso(piso)}/m²`;
         card.appendChild(informacoes);
         exibirGaleria(card, piso.fotos);
         item.appendChild(card);
+        const listaLotes = document.createElement('div');
+        listaLotes.className = 'listaLotes';
+        lotes.forEach(lote => {
+            const linha = document.createElement('div');
+            linha.className = 'linhaLote';
+            const resumo = document.createElement('span');
+            resumo.textContent = `Bitola ${lote.bitola ?? '-'} · Tonalidade ${lote.tonalidade ?? '-'} · ${lote.estoque || 0} caixas e ${lote.pecasAbertas || 0} peças${lote.ativo === false ? ' · INATIVO' : Number(lote.estoqueMinimo) > 0 && obterTotalPecas(lote) <= Number(lote.estoqueMinimo) * Number(lote.pecasPorCaixa) ? ' · ESTOQUE BAIXO' : ''}`;
+            const abrir = document.createElement('button');
+            abrir.type = 'button';
+            abrir.className = 'botaoSecundario';
+            abrir.textContent = lista === listaPisosCadastro ? 'Editar lote' : 'Escolher lote';
+            abrir.addEventListener('click', () => {
+                abrirDetalhesLote(lote.id, lista === listaPisosCadastro ? 'cadastro' : 'orcamento');
+                if (lista === listaPisosCadastro) editarPiso.click();
+            });
+            linha.append(resumo, abrir);
+            listaLotes.append(linha);
+        });
+        if (lista === listaPisosCadastro) {
+            const adicionar = document.createElement('button');
+            adicionar.type = 'button';
+            adicionar.textContent = 'Adicionar lote';
+            adicionar.addEventListener('click', () => {
+                origemLoteId = piso.id;
+                document.getElementById('loteForm').reset();
+                document.getElementById('modeloLote').textContent = piso.nome;
+                modalLote.showModal();
+            });
+            listaLotes.append(adicionar);
+        }
+        card.append(listaLotes);
+        informacoes.textContent = `${piso.nome} · ${formatarMoeda(piso.preco)}/m² · ${lotes.length} ${lotes.length === 1 ? 'lote' : 'lotes'} · ${lotes.reduce((total, lote) => total + Number(calcularAreaTotalPiso(lote)), 0).toFixed(2)} m² em estoque`;
         lista.appendChild(item);
     });
     if (!lista.children.length) { const empty = document.createElement('li'); empty.className = 'estadoVazio'; empty.textContent = termoBusca ? 'Nenhum piso encontrado. Tente outro termo.' : 'Nenhum piso cadastrado. Adicione o primeiro produto em Cadastro.'; lista.append(empty); }
@@ -834,6 +898,10 @@ pisosForm.addEventListener('submit', function (event) {
         );
 
         piso.id = indice === null ? DadosSeguros.id() : pisos[indice].id;
+        piso.modeloId = indice === null ? piso.id : (pisos[indice].modeloId || pisos[indice].id);
+        if (pisos.some(p => p.id !== piso.id && (p.modeloId || p.id) === piso.modeloId && Number(p.bitola) === Number(piso.bitola) && Number(p.tonalidade) === Number(piso.tonalidade))) {
+            throw new Error('Já existe um lote com essa bitola e tonalidade neste modelo.');
+        }
         piso.version = indice === null ? 0 : pisoEditandoVersion;
         piso.ativo = indice === null ? true : pisos[indice].ativo;
         piso.estoqueMinimo = Number(dados.get('estoqueMinimo')) || 0;

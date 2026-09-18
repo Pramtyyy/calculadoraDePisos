@@ -50,6 +50,22 @@ class ServerTests(unittest.TestCase):
             self.assertEqual(self.request(path,method='HEAD')[0],404,path)
         self.assertEqual(self.request('/api/health',token='')[0],200)
         self.assertEqual(self.request('/api/pisos',[])[0],400)
+    def test_lotes_preserve_independent_stock(self):
+        self.create()
+        second = dict(piso('lot-2', stock=3), modeloId='tile', bitola='2', tonalidade='5')
+        status, state = self.operation(dict(id='new-lot', tipo='piso', baseVersion=0, piso=second))
+        self.assertEqual(status, 200, state)
+        self.assertEqual(state['pisos'][1]['modeloId'], 'tile')
+        duplicate = dict(second, id='duplicate', bitola='02')
+        self.assertEqual(self.operation(dict(id='duplicate', tipo='piso', baseVersion=0, piso=duplicate))[0], 409)
+        sale = self.sale()
+        sale['itens'][0]['pisoId'] = 'lot-2'
+        status, state = self.operation(sale)
+        self.assertEqual(status, 200, state)
+        self.assertEqual([p['estoque'] for p in state['pisos']], [10, 2])
+        status, state = self.operation(dict(id='cancel-lot', tipo='cancelarVenda', vendaId='sale'))
+        self.assertEqual(status, 200, state)
+        self.assertEqual([p['estoque'] for p in state['pisos']], [10, 3])
     def test_photo_validation_and_auth(self):
         png=b'\x89PNG\r\n\x1a\nfixture'
         status,body,_=self.request('/api/foto',{'foto':'data:image/png;base64,'+base64.b64encode(png).decode()})

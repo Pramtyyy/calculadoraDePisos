@@ -12,7 +12,7 @@ if __name__ == '__main__':
         http=server.ThreadingHTTPServer(('127.0.0.1',8765),server.AppHandler)
         thread=threading.Thread(target=http.serve_forever,daemon=True);thread.start()
         try:
-            for name in ('photos.browser.cjs','recovery.browser.cjs'):
+            for name in ('photos.browser.cjs','recovery.browser.cjs','lotes.browser.cjs'):
                 subprocess.run(['node',str(Path(__file__).parent/name)],cwd=test_photos.PROJECT,check=True)
         finally:
             http.shutdown();http.server_close();thread.join()
