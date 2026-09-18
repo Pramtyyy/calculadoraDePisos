@@ -1,0 +1,23 @@
+{
+  "base": {
+    "pisos": [],
+    "vendas": [],
+    "orcamentos": [],
+    "movimentos": [],
+    "revision": 0,
+    "serverId": "e9ece183a7a24abfaf1146ad190a32ae"
+  },
+  "queue": [],
+  "legacyBackup": {
+    "pisos": [],
+    "vendas": []
+  },
+  "legacyPending": false,
+  "draft": {
+    "itens": [],
+    "cliente": "",
+    "telefone": "",
+    "quoteId": null
+  },
+  "localPhotos": {}
+}

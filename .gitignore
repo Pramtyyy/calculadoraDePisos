@@ -1,0 +1,4 @@
+.server-token
+backups/
+__pycache__/
+tests/tmp*/

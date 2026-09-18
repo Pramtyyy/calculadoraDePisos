@@ -20,14 +20,12 @@ const chavePisos = 'pisos';
 const chaveApi = 'apiUrl';
 const chaveVendas = 'vendas';
 const enderecoServidorPadrao = 'http://192.168.0.5:8000';
-let pisosEmMemoria = JSON.parse(localStorage.getItem(chavePisos)) || [];
-let vendasEmMemoria = JSON.parse(localStorage.getItem(chaveVendas)) || [];
+let pisosEmMemoria = DadosSeguros.project().pisos;
+let vendasEmMemoria = DadosSeguros.project().vendas;
 let apiUrl = window.location.protocol === 'file:'
-    ? (localStorage.getItem(chaveApi) || enderecoServidorPadrao)
-    : (localStorage.getItem(chaveApi) || window.location.origin);
-if (apiUrl === 'http://192.168.0.15:8000') {
-    apiUrl = enderecoServidorPadrao;
-}
+    ? (localStorage.getItem(chaveApi) ?? enderecoServidorPadrao)
+    : (localStorage.getItem(chaveApi) ?? window.location.origin);
+apiUrl = apiUrl.replace(/\/+$/, '');
 localStorage.setItem(chaveApi, apiUrl);
 const modal = document.getElementById('modal');
 const telaPrincipal = document.getElementById('telaPrincipal');
@@ -84,11 +82,15 @@ const finalizarOrcamento = document.getElementById('finalizarOrcamento');
 const limparOrcamento = document.getElementById('limparOrcamento');
 const quantidadeArgamassa = document.getElementById('quantidadeArgamassa');
 const fotosInput = document.getElementById('fotos');
+const previaFotos = document.getElementById('previaFotos');
 const abrirCamera = document.getElementById('abrirCamera');
 const alternarFundo = document.getElementById('alternarFundo');
 let indicePisoSelecionado = null;
+let pisoSelecionadoId = null;
 let indicePisoEditando = null;
-let itensOrcamento = [];
+let pisoEditandoId = null;
+let pisoEditandoVersion = null;
+let itensOrcamento = DadosSeguros.draft.itens || [];
 let fotosAndroidSelecionadas = [];
 let fotosPreservadasNaEdicao = [];
 let resolverConfirmacaoVenda = null;
@@ -148,7 +150,8 @@ window.tratarVoltarAndroid = function () {
 function aplicarTema(tema) {
     const escuro = tema === 'escuro';
     document.body.classList.toggle('temaEscuro', escuro);
-    alternarFundo.textContent = escuro ? '\u263c' : '\u2600';
+    alternarFundo.setAttribute('aria-label', escuro ? 'Ativar tema claro' : 'Ativar tema escuro');
+    alternarFundo.title = escuro ? 'Ativar tema claro' : 'Ativar tema escuro';
     alternarFundo.setAttribute('aria-pressed', String(escuro));
     localStorage.setItem('tema', escuro ? 'escuro' : 'claro');
 
@@ -161,6 +164,10 @@ function alternarTema() {
     const temaAtual = document.body.classList.contains('temaEscuro') ? 'claro' : 'escuro';
     aplicarTema(temaAtual);
 }
+
+document.querySelectorAll('[data-fechar]').forEach(function (botao) {
+    botao.addEventListener('click', () => document.getElementById(botao.dataset.fechar).close());
+});
 
 alternarFundo.addEventListener('click', alternarTema);
 aplicarTema(localStorage.getItem('tema') || 'claro');
@@ -233,8 +240,53 @@ function avisarFalhaFoto() {
     window.alert('Não foi possível carregar a foto.');
 }
 
+async function requisitar(url, options = {}) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 10000);
+    const headers = new Headers(options.headers || {});
+    if (apiUrl && url.startsWith(apiUrl + '/')) {
+        const token = localStorage.getItem('apiToken') || '';
+        if (token && !headers.has('Authorization')) headers.set('Authorization', 'Bearer ' + token);
+    }
+    try { return await fetch(url, { ...options, headers, signal: controller.signal }); }
+    finally { clearTimeout(timer); }
+}
+
+const bancoFotos = new Promise(function (resolve, reject) {
+    const pedido = indexedDB.open('fotos-pisos', 1);
+    pedido.onupgradeneeded = () => pedido.result.createObjectStore('fotos');
+    pedido.onsuccess = () => resolve(pedido.result);
+    pedido.onerror = () => reject(pedido.error);
+});
+bancoFotos.catch(() => {});
+async function cacheFoto(chave, valor) {
+    const banco = await bancoFotos;
+    return new Promise(function (resolve, reject) {
+        const tx = banco.transaction('fotos', valor === undefined ? 'readonly' : 'readwrite');
+        const loja = tx.objectStore('fotos');
+        const pedido = valor === undefined ? loja.get(chave) : loja.put(valor, chave);
+        tx.oncomplete = () => resolve(pedido.result);
+        tx.onerror = () => reject(tx.error);
+        tx.onabort = () => reject(tx.error);
+    });
+}
+function carregarFoto(imagem, foto) {
+    const url = resolverUrlFoto(foto);
+    cacheFoto(url).then(async function (local) {
+        if (local) { imagem.src = local; return; }
+        if (url.startsWith('data:')) { imagem.src = url; return; }
+        const response = await requisitar(url);
+        if (!response.ok) throw Error('Foto indisponível');
+        const blob = await response.blob();
+        const data = await new Promise((resolve, reject) => {
+            const reader = new FileReader(); reader.onload = () => resolve(reader.result); reader.onerror = reject; reader.readAsDataURL(blob);
+        });
+        imagem.src = data; await cacheFoto(url, data);
+    }).catch(() => { imagem.alt = 'Foto indisponível neste aparelho'; });
+}
+
 async function enviarFotoServidor(dataUrl) {
-    const resposta = await fetch(`${apiUrl}/api/foto`, {
+    const resposta = await requisitar(`${apiUrl}/api/foto`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ foto: dataUrl })
@@ -243,7 +295,10 @@ async function enviarFotoServidor(dataUrl) {
         throw new Error(`HTTP ${resposta.status}`);
     }
     const dados = await resposta.json();
-    return `fotos/${dados.arquivo}`; // caminho relativo, guardado no piso
+    if (!/^[a-f0-9]{32}\.(jpg|png|webp)$/.test(dados.arquivo)) throw new Error('Resposta de foto inválida');
+    const foto = `fotos/${dados.arquivo}`;
+    await cacheFoto(resolverUrlFoto(foto), dataUrl);
+    return foto;
 }
 
 function resolverUrlFoto(foto) {
@@ -253,24 +308,21 @@ function resolverUrlFoto(foto) {
 }
 
 window.onAndroidFilesSelected = async function (urls) {
-    if (!Array.isArray(urls) || urls.length === 0) {
-        fotosAndroidSelecionadas = [];
-        return;
+    if (!Array.isArray(urls) || urls.length === 0) return;
+    try {
+        const arquivos = await Promise.all(urls.slice(0, 3).map(async function (url, index) {
+            const resposta = await requisitar(url);
+            if (!resposta.ok) throw new Error('Foto local indisponível');
+            return new File([await resposta.blob()], `foto-${index + 1}.jpg`, { type: 'image/jpeg' });
+        }));
+        fotosAndroidSelecionadas = arquivos;
+        mostrarPrevia(arquivos);
+    } catch (erro) {
+        avisarFalhaFoto();
     }
-    // baixa cada foto local (via URL interceptada) e converte pra File
-    const arquivos = await Promise.all(urls.slice(0, 3).map(async function (url, index) {
-        const resposta = await fetch(url);
-        const blob = await resposta.blob();
-        return new File([blob], `foto-${index + 1}.jpg`, { type: 'image/jpeg' });
-    }));
-    fotosAndroidSelecionadas = arquivos;
-    const transferencia = new DataTransfer();
-    arquivos.forEach(function (arquivo) {
-        transferencia.items.add(arquivo);
-    });
-    fotosInput.files = transferencia.files;
-    fotosInput.dispatchEvent(new Event('change', { bubbles: true }));
 };
+
+document.getElementById('selecionarFotos').addEventListener('click', () => fotosInput.click());
 
 fotosInput.addEventListener('click', function (event) {
     if (window.AndroidFilePicker) {
@@ -279,11 +331,22 @@ fotosInput.addEventListener('click', function (event) {
     }
 });
 
+const cameraInput = document.createElement('input');
+cameraInput.type = 'file';
+cameraInput.accept = 'image/*';
+cameraInput.setAttribute('capture', 'environment');
+cameraInput.addEventListener('change', function () {
+    if (!cameraInput.files.length) return;
+    fotosAndroidSelecionadas = Array.from(cameraInput.files).slice(0, 3);
+    mostrarPrevia(fotosAndroidSelecionadas);
+    cameraInput.value = '';
+});
+
 abrirCamera.addEventListener('click', function () {
     if (window.AndroidCamera) {
         window.AndroidCamera.open();
     } else {
-        fotosInput.click();
+        cameraInput.click();
     }
 });
 
@@ -291,83 +354,46 @@ function obterPisos() {
     return pisosEmMemoria;
 }
 
+function atualizarDadosLocais() {
+    const state = DadosSeguros.project();
+    pisosEmMemoria = state.pisos;
+    if (pisoSelecionadoId) indicePisoSelecionado = pisosEmMemoria.findIndex(p => p.id === pisoSelecionadoId);
+    vendasEmMemoria = state.vendas;
+    document.getElementById('statusSync').textContent = DadosSeguros.status + (DadosSeguros.pending ? ` · ${DadosSeguros.pending} pendente(s)` : '');
+    exibirPisos(); exibirRelatorio(); listarOrcamentosSalvos();
+}
 function persistirPisos(pisos) {
-    pisosEmMemoria = pisos;
-    localStorage.setItem(chavePisos, JSON.stringify(pisos));
-    if (!apiUrl) {
-        return;
-    }
-
-    fetch(`${apiUrl}/api/pisos`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(pisos)
-    }).then(function (resposta) {
-        if (!resposta.ok) {
-            throw new Error(`HTTP ${resposta.status}`);
-        }
-    }).catch(function (erro) {
-        console.warn('Servidor indisponível; dados mantidos localmente.', erro);
-        window.alert('Não foi possível sincronizar com o servidor. Os dados ficaram somente neste aparelho.');
-    });
+    DadosSeguros.savePisos(pisos);
+    sincronizarPisos().catch(console.warn);
 }
-
-async function persistirVendas(vendas) {
-    vendasEmMemoria = vendas;
-    localStorage.setItem(chaveVendas, JSON.stringify(vendas));
-    if (!apiUrl) {
-        return;
+async function fotoParaServidor(foto) {
+    if (foto.startsWith('fotos/')) return foto;
+    if (foto.startsWith('localfoto:')) {
+        const local = await cacheFoto(foto);
+        if (!local) throw Error('Foto local não encontrada');
+        return enviarFotoServidor(local);
     }
-    const resposta = await fetch(`${apiUrl}/api/vendas`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(vendas)
-    });
-    if (!resposta.ok) {
-        throw new Error(`HTTP ${resposta.status}`);
+    if (foto.startsWith('data:')) return enviarFotoServidor(foto);
+    if (foto.startsWith('https://fotoslocais.calculadordepisos/')) {
+        const response = await requisitar(foto); if (!response.ok) throw Error('Foto não encontrada');
+        const blob = await response.blob();
+        const data = await new Promise((resolve, reject) => {
+            const reader = new FileReader(); reader.onload = () => resolve(reader.result); reader.onerror = reject; reader.readAsDataURL(blob);
+        });
+        return enviarFotoServidor(data);
+    }
+    throw Error('Importe novamente esta foto para o servidor configurado.');
+}
+function sincronizarPisos() { return DadosSeguros.sync(apiUrl, requisitar, fotoParaServidor); }
+function orientarConexao(error) {
+    if (error.status === 401) {
+        if (!configModal.open) document.getElementById('abrirConfiguracoes').click();
+        document.getElementById('resultadoConexao').textContent = 'Servidor acessível. Informe a chave de acesso deste servidor e salve para sincronizar. Seus dados locais foram mantidos.';
+        document.getElementById('chaveConfig').focus();
     }
 }
-
-function avisarFalhaSincronizacao(erro) {
-        console.warn('Vendas mantidas localmente; falha ao sincronizar.', erro);
-        window.alert('A venda foi salva neste aparelho, mas não foi possível salvar o relatório no servidor.');
-}
-
-async function carregarPisos() {
-    if (!apiUrl && window.location.protocol === 'file:' && !localStorage.getItem(chaveApi)) {
-        const endereco = window.prompt(
-            'Informe a URL do servidor (ex.: http://192.168.0.10:8000). Deixe vazio para usar somente este aparelho:',
-            ''
-        );
-        if (endereco) {
-            apiUrl = endereco.replace(/\/$/, '');
-            localStorage.setItem(chaveApi, apiUrl);
-        }
-    }
-
-    if (!apiUrl) {
-        return;
-    }
-
-    try {
-        const [resposta, respostaVendas] = await Promise.all([
-            fetch(`${apiUrl}/api/pisos`),
-            fetch(`${apiUrl}/api/vendas`)
-        ]);
-        if (!resposta.ok) {
-            throw new Error(`HTTP ${resposta.status}`);
-        }
-        pisosEmMemoria = await resposta.json();
-        if (respostaVendas.ok) {
-            vendasEmMemoria = await respostaVendas.json();
-            localStorage.setItem(chaveVendas, JSON.stringify(vendasEmMemoria));
-        }
-        localStorage.setItem(chavePisos, JSON.stringify(pisosEmMemoria));
-        exibirPisos();
-    } catch (erro) {
-        console.warn('Servidor indisponível; usando dados locais.', erro);
-    }
-}
+async function carregarPisos() { try { await sincronizarPisos(); } catch (error) { orientarConexao(error); console.warn(error); } }
+window.addEventListener('online', carregarPisos);
 
 function exibirRelatorio() {
     const inicio = dataInicialRelatorio.value;
@@ -379,14 +405,24 @@ function exibirRelatorio() {
         return (!inicio || data >= inicio) && (!fim || data <= fim) && (!busca || texto.includes(busca));
     });
     listaRelatorioVendas.innerHTML = '';
+    if (!vendasFiltradas.length) { const empty = document.createElement('li'); empty.textContent = 'Nenhuma venda neste período.'; listaRelatorioVendas.append(empty); }
     let total = 0;
     vendasFiltradas.forEach(function (venda) {
-        total += Number(venda.total) || 0;
+        if (!venda.cancelada) total += Number(venda.total) || 0;
         const linha = document.createElement('li');
         linha.className = 'itemRelatorio';
         linha.textContent = `${new Date(venda.data).toLocaleString('pt-BR')} - ${venda.itens.map(function (item) {
             return `${item.nome} (${item.quantidade} ${item.unidade})`;
         }).join(', ')} - ${formatarMoeda(venda.total)}`;
+        if (venda.cancelada) { linha.append(' · CANCELADA'); }
+        else if (!venda.pendente && venda.itens.every(i => i.pisoId && i.pecas)) {
+            const cancelar = document.createElement('button'); cancelar.type = 'button'; cancelar.className = 'botaoSecundario'; cancelar.textContent = 'Cancelar venda';
+            cancelar.addEventListener('click', () => {
+                if (!confirm('Cancelar esta venda e devolver as peças ao estoque?')) return;
+                DadosSeguros.enqueue([{id:DadosSeguros.id(),tipo:'cancelarVenda',vendaId:venda.id}]); sincronizarPisos().catch(console.warn);
+            }); linha.appendChild(cancelar);
+        }
+        if (venda.pendente) linha.append(' · Aguardando sincronização');
         listaRelatorioVendas.appendChild(linha);
     });
     totalVendasRelatorio.textContent = `${vendasFiltradas.length} ${vendasFiltradas.length === 1 ? 'venda' : 'vendas'}`;
@@ -405,6 +441,7 @@ function abrirDetalhesPiso(event, modo) {
             return;
         }
         indicePisoSelecionado = Number(item.dataset.index);
+        pisoSelecionadoId = piso.id;
         editarPiso.style.display = modo === 'cadastro' ? '' : 'none';
         excluirPiso.style.display = modo === 'cadastro' ? '' : 'none';
         excluirPiso.textContent = piso.ativo === false ? 'Ativar piso' : 'Inativar piso';
@@ -468,13 +505,14 @@ function renderizarListaPisos(lista, termoBusca, somenteAtivos) {
         const estoque = `${piso.estoque ?? 0} caixas${pecasAbertas > 0 ? ` e ${pecasAbertas} peças` : ''}`;
         const informacoes = document.createElement('div');
         informacoes.className = 'pisoInformacoes';
-        const situacao = piso.ativo === false ? ' - INATIVO' : '';
+        const situacao = piso.ativo === false ? ' - INATIVO' : (Number(piso.estoqueMinimo) > 0 && obterTotalPecas(piso) <= Number(piso.estoqueMinimo) * Number(piso.pecasPorCaixa) ? ' - ESTOQUE BAIXO' : '');
         informacoes.textContent = `${piso.nome}${situacao} - ${piso.bitola ?? '-'}/${piso.tonalidade ?? '-'} - ${formatarMoeda(piso.preco)}/m² - Estoque: ${estoque} - ${calcularAreaTotalPiso(piso)}/m²`;
         card.appendChild(informacoes);
         exibirGaleria(card, piso.fotos);
         item.appendChild(card);
         lista.appendChild(item);
     });
+    if (!lista.children.length) { const empty = document.createElement('li'); empty.className = 'estadoVazio'; empty.textContent = termoBusca ? 'Nenhum piso encontrado. Tente outro termo.' : 'Nenhum piso cadastrado. Adicione o primeiro produto em Cadastro.'; lista.append(empty); }
 }
 
 function calcularAreaTotalPiso(piso) {
@@ -494,7 +532,7 @@ function exibirGaleria(container, fotos) {
     const galeria = document.createElement('div');
     galeria.className = 'galeria';
     const imagem = document.createElement('img');
-    imagem.src = resolverUrlFoto(fotosValidas[0]);
+    carregarFoto(imagem, fotosValidas[0]);
     imagem.alt = 'Foto do piso';
     imagem.loading = 'eager';
     imagem.addEventListener('click', function (event) {
@@ -509,7 +547,7 @@ function abrirGaleria(fotos) {
     galeriaAmpliada.innerHTML = '';
     fotos.slice(0, 3).forEach(function (foto) {
         const imagem = document.createElement('img');
-        imagem.src = resolverUrlFoto(foto);
+        carregarFoto(imagem, foto);
         imagem.alt = 'Foto ampliada do piso';
         galeriaAmpliada.appendChild(imagem);
     });
@@ -522,7 +560,7 @@ excluirPiso.addEventListener('click', function () {
         return;
     }
 
-    pisos[indicePisoSelecionado].ativo = pisos[indicePisoSelecionado].ativo === false;
+    pisos[indicePisoSelecionado] = { ...pisos[indicePisoSelecionado], ativo: pisos[indicePisoSelecionado].ativo === false };
     persistirPisos(pisos);
     indicePisoSelecionado = null;
     modalDetalhes.close();
@@ -535,7 +573,10 @@ editarPiso.addEventListener('click', function () {
         return;
     }
     indicePisoEditando = indicePisoSelecionado;
+    pisoEditandoId = piso.id;
+    pisoEditandoVersion = piso.version;
     fotosPreservadasNaEdicao = Array.isArray(piso.fotos) ? piso.fotos.slice() : [];
+    mostrarFotosSalvas();
     modalDetalhes.close();
 
     Object.keys(piso).forEach(function (campo) {
@@ -599,7 +640,7 @@ function obterTotalPecas(piso) {
 function obterPecasReservadas(indicePiso) {
     return itensOrcamento
         .filter(function (item) {
-            return item.indicePiso === indicePiso;
+            return item.pisoId === obterPisos()[indicePiso]?.id;
         })
         .reduce(function (total, item) {
             return total + item.pecasReservadas;
@@ -660,6 +701,7 @@ vendaForm.addEventListener('submit', function (event) {
         : quantidade * calcularAreaPorPeca(piso);
     itensOrcamento.push({
         indicePiso: indicePisoSelecionado,
+        pisoId: piso.id,
         nome: piso.nome,
         bitola: piso.bitola,
         tonalidade: piso.tonalidade,
@@ -668,14 +710,16 @@ vendaForm.addEventListener('submit', function (event) {
         pecasReservadas,
         metros,
         preco: obterPrecoVenda(piso),
-        total: metros * obterPrecoVenda(piso)
+        total: Math.round((metros * obterPrecoVenda(piso) + Number.EPSILON) * 100) / 100
     });
     exibirOrcamento();
     modalVenda.close();
 });
 
 function exibirOrcamento() {
+    salvarRascunho();
     listaOrcamento.innerHTML = '';
+    if (!itensOrcamento.length) { const empty = document.createElement('li'); empty.textContent = 'Adicione produtos para montar um orçamento.'; listaOrcamento.append(empty); }
     let metros = 0;
     let valor = 0;
 
@@ -687,6 +731,7 @@ function exibirOrcamento() {
         const remover = document.createElement('button');
         remover.type = 'button';
         remover.textContent = 'Remover';
+        remover.className = 'botaoSecundario';
         remover.addEventListener('click', function () {
             itensOrcamento.splice(index, 1);
             exibirOrcamento();
@@ -705,48 +750,33 @@ function exibirOrcamento() {
 
 limparOrcamento.addEventListener('click', function () {
     itensOrcamento = [];
+    orcamentoAtualId = null;
     exibirOrcamento();
 });
 
+let finalizando = false;
 finalizarOrcamento.addEventListener('click', async function () {
-    if (!await pedirConfirmacaoVenda()) {
-        return;
-    }
-
-    const pisos = obterPisos();
-    const pecasPorPiso = {};
-
-    itensOrcamento.forEach(function (item) {
-        pecasPorPiso[item.indicePiso] = (pecasPorPiso[item.indicePiso] ?? 0) + item.pecasReservadas;
-    });
-
-    Object.keys(pecasPorPiso).forEach(function (indice) {
-        const piso = pisos[Number(indice)];
-        const totalRestante = obterTotalPecas(piso) - pecasPorPiso[indice];
-        const pecasPorCaixa = Number(piso.pecasPorCaixa ?? 1);
-        piso.estoque = Math.floor(totalRestante / pecasPorCaixa);
-        piso.pecasAbertas = totalRestante % pecasPorCaixa;
-    });
-
-    const totalVenda = itensOrcamento.reduce(function (total, item) {
-        return total + item.total;
-    }, 0);
+    if (finalizando || !itensOrcamento.length) return;
+    finalizando = true;
     try {
-        await persistirVendas(vendasEmMemoria.concat({
-        data: new Date().toISOString(),
-        itens: itensOrcamento.map(function (item) {
-            return { nome: item.nome, quantidade: item.quantidade, unidade: item.unidade, total: item.total };
-        }),
-        total: totalVenda
-        }));
-    } catch (erro) {
-        avisarFalhaSincronizacao(erro);
-    }
-    persistirPisos(pisos);
-    itensOrcamento = [];
-    exibirOrcamento();
-    exibirPisos();
-    mostrarTela('orcamento');
+        if (!await pedirConfirmacaoVenda()) return;
+        const needed = {};
+        for (const item of itensOrcamento) {
+            if (!item.pisoId) throw Error('Reabra os produtos deste orçamento antigo.');
+            const piso = obterPisos().find(p => p.id === item.pisoId);
+            if (!piso || piso.ativo === false) throw Error('Produto indisponível. Revise o orçamento.');
+            needed[piso.id] = (needed[piso.id] || 0) + item.quantidade * (item.unidade === 'caixas' ? Number(piso.pecasPorCaixa) : 1);
+            if (needed[piso.id] > obterTotalPecas(piso)) throw Error('Estoque insuficiente: ' + piso.nome);
+        }
+        const operation = {id:DadosSeguros.id(), tipo:'venda', data:new Date().toISOString(),
+            cliente:document.getElementById('clienteOrcamento').value.trim(), itens:DadosSeguros.copy(itensOrcamento)};
+        DadosSeguros.enqueue([operation], true);
+        orcamentoAtualId = null;
+        itensOrcamento = []; salvarRascunho(); exibirOrcamento(); modalOrcamento.close();
+        mostrarTela('orcamento');
+        await sincronizarPisos();
+    } catch (error) { window.alert(error.message); }
+    finally { finalizando = false; }
 });
 
 abrirFormulario.addEventListener('click', function () {
@@ -754,6 +784,8 @@ abrirFormulario.addEventListener('click', function () {
     fotosAndroidSelecionadas = [];
     fotosPreservadasNaEdicao = [];
     pisosForm.reset();
+    previaFotos.innerHTML = '';
+    mostrarFotosSalvas();
     salvarPiso.textContent = 'Adicionar';
     modal.showModal();
 });
@@ -767,21 +799,25 @@ pisosForm.addEventListener('submit', function (event) {
     event.preventDefault();
 
     const dados = new FormData(pisosForm);
-    const pisos = obterPisos();
+    if (salvarPiso.disabled) return;
+    salvarPiso.disabled = true;
+    salvarPiso.textContent = 'Salvando…';
+    const pisos = obterPisos().slice();
     const fotosSelecionadas = fotosAndroidSelecionadas.length > 0
         ? fotosAndroidSelecionadas
         : Array.from(pisosForm.elements.fotos.files);
     pisosForm.elements.fotos.setCustomValidity('');
-    const indice = indicePisoEditando;
+    const indice = indicePisoEditando === null ? null : pisos.findIndex(p => p.id === pisoEditandoId);
+    if (indice === -1) { salvarPiso.disabled = false; window.alert('Produto não encontrado. Reabra o cadastro.'); return; }
     const fotosAtuais = indice === null
         ? []
-        : (fotosPreservadasNaEdicao.length > 0 ? fotosPreservadasNaEdicao : (pisos[indice].fotos ?? []));
+        : fotosPreservadasNaEdicao;
     lerFotos(fotosSelecionadas.slice(0, 3)).then(function (fotos) {
         const fotosFinais = fotos.length > 0
             ? fotosAtuais.concat(fotos).slice(-3)
             : fotosAtuais;
         const piso = new Piso(
-            dados.get('nome'),
+            dados.get('nome').toUpperCase(),
             dados.get('bitola'),
             dados.get('tonalidade'),
             fotosFinais,
@@ -797,6 +833,10 @@ pisosForm.addEventListener('submit', function (event) {
             dados.get('pecasAbertas')
         );
 
+        piso.id = indice === null ? DadosSeguros.id() : pisos[indice].id;
+        piso.version = indice === null ? 0 : pisoEditandoVersion;
+        piso.ativo = indice === null ? true : pisos[indice].ativo;
+        piso.estoqueMinimo = Number(dados.get('estoqueMinimo')) || 0;
         if (indice === null) {
             pisos.push(piso);
         } else {
@@ -812,11 +852,9 @@ pisosForm.addEventListener('submit', function (event) {
         modal.close();
         exibirPisos();
         mostrarTela('cadastro');
-    }).catch(function () {
-        avisarFalhaFoto();
-        pisosForm.elements.fotos.setCustomValidity('Não foi possível carregar a foto.');
-        pisosForm.elements.fotos.reportValidity();
-    });
+    }).catch(function (error) {
+        window.alert(error.message || 'Não foi possível salvar. Seus dados continuam no formulário.');
+    }).finally(function () { salvarPiso.disabled = false; salvarPiso.textContent = indicePisoEditando === null ? 'Adicionar' : 'Salvar alterações'; });
 });
 
 function lerFotos(fotos) {
@@ -835,7 +873,11 @@ function lerFotos(fotos) {
         });
     })).then(async function (dataUrls) {
         if (!apiUrl) {
-            return dataUrls; // sem servidor: mantém base64 (funciona, mas com limite de localStorage)
+            return Promise.all(dataUrls.map(async function (data, index) {
+                const chave = `localfoto:${Date.now()}-${index}-${Math.random()}`;
+                await cacheFoto(chave, data);
+                return chave;
+            }));
         }
         const resultados = [];
         for (const dataUrl of dataUrls) {
@@ -843,7 +885,9 @@ function lerFotos(fotos) {
                 resultados.push(await enviarFotoServidor(dataUrl));
             } catch (erro) {
                 console.warn('Falha ao enviar foto ao servidor; usando local.', erro);
-                resultados.push(dataUrl);
+                const chave = `localfoto:${crypto.randomUUID ? crypto.randomUUID() : Date.now() + '-' + Math.random()}`;
+                await cacheFoto(chave, dataUrl);
+                resultados.push(chave);
             }
         }
         return resultados;
@@ -873,6 +917,7 @@ buscaRelatorio.addEventListener('input', exibirRelatorio);
 
 alternarInativos.addEventListener('click', function () {
     mostrarInativos = !mostrarInativos;
+    alternarInativos.setAttribute('aria-pressed', String(mostrarInativos));
     alternarInativos.textContent = mostrarInativos ? 'Mostrar somente ativos' : 'Mostrar inativos';
     exibirPisos();
 });
@@ -894,9 +939,213 @@ if (window.visualViewport) {
     window.visualViewport.addEventListener('resize', atualizarAlturaDisponivel);
 }
 
-exibirPisos();
+function mostrarFotosSalvas() {
+    const container = document.getElementById('fotosSalvas'); container.replaceChildren();
+    fotosPreservadasNaEdicao.forEach((foto, index) => {
+        const card = document.createElement('div'); const image = document.createElement('img');
+        image.alt = index === 0 ? 'Foto de capa' : 'Foto do piso'; carregarFoto(image, foto); card.append(image);
+        const cover = document.createElement('button'); cover.type = 'button'; cover.className = 'botaoSecundario';
+        cover.textContent = index === 0 ? 'Capa' : 'Usar como capa'; cover.disabled = index === 0;
+        cover.onclick = () => { fotosPreservadasNaEdicao.splice(index, 1); fotosPreservadasNaEdicao.unshift(foto); mostrarFotosSalvas(); };
+        const remove = document.createElement('button'); remove.type = 'button'; remove.className = 'botaoSecundario'; remove.textContent = 'Remover foto';
+        remove.onclick = () => { fotosPreservadasNaEdicao.splice(index, 1); mostrarFotosSalvas(); };
+        card.append(cover, remove); container.append(card);
+    });
+}
+function salvarRascunho() {
+    DadosSeguros.draftSave({itens:itensOrcamento,cliente:document.getElementById('clienteOrcamento').value,
+        telefone:document.getElementById('telefoneOrcamento').value,quoteId:orcamentoAtualId});
+}
+let orcamentoAtualId = DadosSeguros.draft.quoteId || null;
+document.getElementById('clienteOrcamento').value = DadosSeguros.draft.cliente || '';
+document.getElementById('telefoneOrcamento').value = DadosSeguros.draft.telefone || '';
+['clienteOrcamento','telefoneOrcamento'].forEach(id => document.getElementById(id).addEventListener('input', salvarRascunho));
+const modalOrcamentosSalvos = document.getElementById('modalOrcamentosSalvos');
+fecharAoTocarFora(modalOrcamentosSalvos);
+document.getElementById('abrirOrcamentosSalvos').onclick = () => {
+    listarOrcamentosSalvos();
+    modalOrcamentosSalvos.showModal();
+};
+function listarOrcamentosSalvos() {
+    const list = document.getElementById('orcamentosSalvos'); list.replaceChildren();
+    const quotes = DadosSeguros.project().orcamentos;
+    if (!quotes.length) { const li = document.createElement('li'); li.textContent = 'Nenhum orçamento salvo.'; list.append(li); }
+    quotes.forEach(quote => {
+        const li = document.createElement('li');
+        li.textContent = `${quote.cliente} · ${quote.itens.length} item(ns) · ${formatarMoeda(quote.itens.reduce((s,i) => s + Number(i.total), 0))} `;
+        const open = document.createElement('button'); open.type = 'button'; open.className = 'botaoSecundario'; open.textContent = 'Abrir';
+        open.onclick = () => {
+            if (itensOrcamento.length && !confirm('Substituir o rascunho atual por este orçamento?')) return;
+            itensOrcamento = DadosSeguros.copy(quote.itens); orcamentoAtualId = quote.id;
+            document.getElementById('clienteOrcamento').value = quote.cliente;
+            document.getElementById('telefoneOrcamento').value = quote.telefone || '';
+            salvarRascunho();
+            exibirOrcamento();
+            modalOrcamentosSalvos.close();
+            modalOrcamento.showModal();
+        }; li.append(open); list.append(li);
+    });
+}
+document.getElementById('salvarOrcamento').onclick = () => {
+    const cliente = document.getElementById('clienteOrcamento').value.trim();
+    if (!cliente || !itensOrcamento.length) { alert('Informe o cliente e adicione pelo menos um produto.'); return; }
+    const old = DadosSeguros.project().orcamentos.find(q => q.id === orcamentoAtualId);
+    const quote = {id:old?.id || DadosSeguros.id(), cliente, telefone:document.getElementById('telefoneOrcamento').value.trim(), itens:DadosSeguros.copy(itensOrcamento)};
+    try { DadosSeguros.enqueue([{id:DadosSeguros.id(),tipo:'orcamento',baseVersion:old?.version || 0,orcamento:quote}]);
+        orcamentoAtualId = quote.id; salvarRascunho(); sincronizarPisos().catch(console.warn);
+    } catch (error) { alert(error.message); }
+};
+function resumoOrcamentoTexto() {
+    return ['ORÇAMENTO — Calculador de Pisos', document.getElementById('clienteOrcamento').value,
+        document.getElementById('telefoneOrcamento').value,
+        ...itensOrcamento.map(i => `${i.nome}: ${i.quantidade} ${i.unidade} — ${formatarMoeda(i.total)}`),
+        'Total: ' + formatarMoeda(itensOrcamento.reduce((s,i) => s + i.total, 0)),
+        'Valores e disponibilidade sujeitos à confirmação.'].filter(Boolean).join('\n');
+}
+async function baixarArquivo(blob, name) {
+    if (window.AndroidSalvarArquivo) {
+        if (!window.AndroidSalvarArquivo.iniciar(name, blob.type || 'application/octet-stream')) throw Error('Aguarde a exportação atual.');
+        try {
+            for (let offset = 0; offset < blob.size; offset += 192 * 1024) {
+                const bytes = new Uint8Array(await blob.slice(offset, offset + 192 * 1024).arrayBuffer());
+                let binary = ''; for (const byte of bytes) binary += String.fromCharCode(byte);
+                if (!window.AndroidSalvarArquivo.parte(btoa(binary))) throw Error('Falha ao preparar o arquivo.');
+            }
+            await new Promise((resolve, reject) => {
+                window.onAndroidExportCompleted = success => { window.onAndroidExportCompleted = null; success ? resolve() : reject(Error('Exportação cancelada ou não concluída.')); };
+                window.AndroidSalvarArquivo.concluir();
+            });
+        } catch (error) { window.AndroidSalvarArquivo.cancelar(); throw error; }
+        return;
+    }
+    const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = name;
+    document.body.append(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 60000);
+}
+document.getElementById('compartilharOrcamento').onclick = async () => {
+    const text = resumoOrcamentoTexto();
+    try { if (navigator.share) await navigator.share({title:'Orçamento',text});
+        else if (window.AndroidCompartilhar) window.AndroidCompartilhar.texto(text);
+        else await baixarArquivo(new Blob([text], {type:'text/plain;charset=utf-8'}),'orcamento.txt');
+    } catch (error) { if (error.name !== 'AbortError') alert('Não foi possível compartilhar.'); }
+};
+document.getElementById('imprimirOrcamento').onclick = () => {
+    document.getElementById('orcamentoImpressao').textContent = resumoOrcamentoTexto();
+    if (window.AndroidImprimir) window.AndroidImprimir.open(); else window.print();
+};
+const configModal = document.getElementById('modalConfiguracoes');
+fecharAoTocarFora(configModal);
+document.getElementById('abrirConfiguracoes').onclick = () => {
+    document.getElementById('servidorConfig').value = apiUrl;
+    document.getElementById('chaveConfig').value = localStorage.getItem('apiToken') || '';
+    const history = document.getElementById('historicoEstoque'); history.replaceChildren();
+    DadosSeguros.project().movimentos.slice(-50).reverse().forEach(m => {
+        const li = document.createElement('li'); li.textContent = `${new Date(m.data).toLocaleString('pt-BR')} · ${m.nome}: ${m.pecas > 0 ? '+' : ''}${m.pecas} peças · ${m.motivo}`; history.append(li);
+    });
+    configModal.showModal();
+};
+document.getElementById('configForm').onsubmit = async event => {
+    event.preventDefault();
+    const raw = document.getElementById('servidorConfig').value.trim().replace(/\/+$/, '');
+    try {
+        if (raw) { const url = new URL(raw); if (!['http:','https:'].includes(url.protocol) || url.username || url.password || url.search || url.hash || url.pathname !== '/') throw Error('Informe somente http(s)://servidor:porta.'); }
+        if (raw !== apiUrl && DadosSeguros.pending) throw Error('Sincronize ou exporte e descarte as pendências antes de trocar de servidor.');
+        apiUrl = raw; localStorage.setItem(chaveApi,raw); localStorage.setItem('apiToken',document.getElementById('chaveConfig').value.trim());
+        await sincronizarPisos(); document.getElementById('resultadoConexao').textContent = DadosSeguros.status;
+    } catch (error) { document.getElementById('resultadoConexao').textContent = error.message; }
+};
+document.getElementById('testarConexao').onclick = async () => {
+    try {
+        const url = document.getElementById('servidorConfig').value.trim().replace(/\/+$/, '');
+        if (!/^https?:\/\//.test(url)) throw Error('Informe um endereço http(s) válido.');
+        const token = document.getElementById('chaveConfig').value.trim();
+        await DadosSeguros.responseJson(await requisitar(`${url}/api/state`, {headers:{Authorization:'Bearer '+token}})); document.getElementById('resultadoConexao').textContent = 'Conexão e chave de acesso válidas.'; }
+    catch (error) { document.getElementById('resultadoConexao').textContent = error.message; }
+};
+document.getElementById('sincronizarAgora').onclick = () => sincronizarPisos().catch(error => { document.getElementById('resultadoConexao').textContent = error.message; orientarConexao(error); });
+async function exportarDadosLocais() {
+    const value = DadosSeguros.raw;
+    const references = new Set();
+    function collect(node) {
+        if (typeof node === 'string' && (node.startsWith('localfoto:') || node.startsWith('fotos/'))) references.add(node);
+        else if (Array.isArray(node)) node.forEach(collect);
+        else if (node && typeof node === 'object') Object.values(node).forEach(collect);
+    }
+    collect(value); value.localPhotos = {};
+    for (const reference of references) {
+        const photo = await cacheFoto(resolverUrlFoto(reference));
+        if (photo) value.localPhotos[reference] = photo;
+    }
+    await baixarArquivo(new Blob([JSON.stringify(value,null,2)],{type:'application/json'}),'dados-locais-'+Date.now()+'.json');
+}
+document.getElementById('importarLocal').onchange = async event => {
+    const file = event.target.files[0]; if (!file) return;
+    try {
+        if (DadosSeguros.pending) throw Error('Resolva as pendências atuais antes de importar.');
+        if (file.size > 256 * 1024 * 1024) throw Error('Arquivo muito grande.');
+        const value = JSON.parse(await file.text());
+        if (!confirm('Importar dados locais e pendências deste arquivo? A sincronização será manual após a revisão.')) return;
+        for (const [reference, photo] of Object.entries(value.localPhotos || {})) {
+            if (typeof photo !== 'string' || !photo.startsWith('data:image/')) throw Error('Foto inválida na exportação');
+            await cacheFoto(resolverUrlFoto(reference), photo);
+        }
+        delete value.localPhotos; DadosSeguros.importLocal(value);
+        itensOrcamento = DadosSeguros.draft.itens || []; orcamentoAtualId = DadosSeguros.draft.quoteId || null;
+        document.getElementById('clienteOrcamento').value = DadosSeguros.draft.cliente || '';
+        document.getElementById('telefoneOrcamento').value = DadosSeguros.draft.telefone || '';
+        exibirOrcamento();
+    } catch (error) { alert(error.message); }
+    finally { event.target.value = ''; }
+};
+document.getElementById('exportarLocal').onclick = () => exportarDadosLocais().catch(error => alert(error.message));
+document.getElementById('recarregarServidor').onclick = async () => {
+    if (!confirm('Exportar uma cópia local e descartar as alterações pendentes para recarregar os dados do servidor?')) return;
+    try { await exportarDadosLocais(); const remote = await DadosSeguros.responseJson(await requisitar(`${apiUrl}/api/state`));
+        DadosSeguros.reset(remote); itensOrcamento = []; orcamentoAtualId = null; exibirOrcamento();
+    } catch (error) { alert(error.message); }
+};
+document.getElementById('backupServidor').onclick = async () => {
+    try { const response = await requisitar(`${apiUrl}/api/backup`); if (!response.ok) throw Error('Falha no backup. Verifique a conexão e a chave.');
+        await baixarArquivo(await response.blob(),'backup-pisos-'+Date.now()+'.zip');
+    } catch (error) { alert(error.message); }
+};
+document.getElementById('restaurarArquivo').onchange = async event => {
+    const file = event.target.files[0]; if (!file) return;
+    try {
+        if (DadosSeguros.pending) throw Error('Sincronize ou exporte as pendências antes de restaurar.');
+        if (!confirm('Substituir os dados do servidor por este backup? Uma cópia de segurança será criada antes da restauração.')) return;
+        const current = await DadosSeguros.responseJson(await requisitar(`${apiUrl}/api/state`));
+        const state = await DadosSeguros.responseJson(await requisitar(`${apiUrl}/api/restore`,{method:'POST',headers:{'Content-Type':'application/zip','If-Match':String(current.revision)},body:file}));
+        DadosSeguros.reset(state); itensOrcamento = []; orcamentoAtualId = null; exibirOrcamento();
+    } catch (error) { alert(error.message); }
+    finally { event.target.value = ''; }
+};
+
+DadosSeguros.onChange(atualizarDadosLocais);
+atualizarDadosLocais();
 exibirOrcamento();
-exibirRelatorio();
 carregarPisos();
 
+fotosInput.addEventListener('change', function () {
+    if (!fotosInput.files.length) return;
+    fotosAndroidSelecionadas = [];
+    mostrarPrevia(Array.from(fotosInput.files).slice(0, 3));
+});
 
+function mostrarPrevia(arquivos) {
+    fotosInput.setCustomValidity('');
+    previaFotos.innerHTML = '';
+
+    arquivos.forEach(function (arquivo) {
+        const imagem = document.createElement('img');
+        const url = URL.createObjectURL(arquivo);
+
+        imagem.src = url;
+        imagem.alt = 'Prévia da foto selecionada';
+
+        imagem.onload = function () {
+            URL.revokeObjectURL(url);
+        };
+
+        previaFotos.appendChild(imagem);
+    });
+}

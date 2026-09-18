@@ -1,0 +1,134 @@
+127.0.0.1 - - [18/Sep/2026 12:21:29] "GET / HTTP/1.1" 200 -
+127.0.0.1 - - [18/Sep/2026 12:21:29] "GET /api/state HTTP/1.1" 401 -
+127.0.0.1 - - [18/Sep/2026 12:21:29] "GET /test.sqlite3 HTTP/1.1" 404 -
+127.0.0.1 - - [18/Sep/2026 12:21:29] "HEAD /test.sqlite3 HTTP/1.1" 404 -
+127.0.0.1 - - [18/Sep/2026 12:21:29] "GET /android/key HTTP/1.1" 404 -
+127.0.0.1 - - [18/Sep/2026 12:21:29] "HEAD /android/key HTTP/1.1" 404 -
+127.0.0.1 - - [18/Sep/2026 12:21:29] "GET /.server-token HTTP/1.1" 404 -
+127.0.0.1 - - [18/Sep/2026 12:21:29] "HEAD /.server-token HTTP/1.1" 404 -
+127.0.0.1 - - [18/Sep/2026 12:21:29] "GET /server.py HTTP/1.1" 404 -
+127.0.0.1 - - [18/Sep/2026 12:21:29] "HEAD /server.py HTTP/1.1" 404 -
+127.0.0.1 - - [18/Sep/2026 12:21:29] "GET /../server.py HTTP/1.1" 404 -
+127.0.0.1 - - [18/Sep/2026 12:21:29] "HEAD /../server.py HTTP/1.1" 404 -
+127.0.0.1 - - [18/Sep/2026 12:21:29] "GET /%2e%2e/server.py HTTP/1.1" 404 -
+127.0.0.1 - - [18/Sep/2026 12:21:29] "HEAD /%2e%2e/server.py HTTP/1.1" 404 -
+127.0.0.1 - - [18/Sep/2026 12:21:29] "GET /backups/ HTTP/1.1" 404 -
+127.0.0.1 - - [18/Sep/2026 12:21:29] "HEAD /backups/ HTTP/1.1" 404 -
+127.0.0.1 - - [18/Sep/2026 12:21:29] "GET /.git/config HTTP/1.1" 404 -
+127.0.0.1 - - [18/Sep/2026 12:21:29] "HEAD /.git/config HTTP/1.1" 404 -
+127.0.0.1 - - [18/Sep/2026 12:21:29] "GET /api/health HTTP/1.1" 200 -
+127.0.0.1 - - [18/Sep/2026 12:21:29] "POST /api/pisos HTTP/1.1" 400 -
+.127.0.0.1 - - [18/Sep/2026 12:21:29] "POST /api/sync HTTP/1.1" 200 -
+127.0.0.1 - - [18/Sep/2026 12:21:29] "POST /api/sync HTTP/1.1" 200 -
+127.0.0.1 - - [18/Sep/2026 12:21:29] "POST /api/sync HTTP/1.1" 200 -
+127.0.0.1 - - [18/Sep/2026 12:21:29] "POST /api/sync HTTP/1.1" 409 -
+127.0.0.1 - - [18/Sep/2026 12:21:29] "POST /api/sync HTTP/1.1" 200 -
+127.0.0.1 - - [18/Sep/2026 12:21:29] "POST /api/sync HTTP/1.1" 409 -
+.127.0.0.1 - - [18/Sep/2026 12:21:30] "POST /api/sync HTTP/1.1" 200 -
+127.0.0.1 - - [18/Sep/2026 12:21:30] "POST /api/sync HTTP/1.1" 200 -
+.127.0.0.1 - - [18/Sep/2026 12:21:30] "POST /api/sync HTTP/1.1" 200 -
+127.0.0.1 - - [18/Sep/2026 12:21:30] "POST /api/sync HTTP/1.1" 200 -
+127.0.0.1 - - [18/Sep/2026 12:21:30] "POST /api/sync HTTP/1.1" 409 -
+..127.0.0.1 - - [18/Sep/2026 12:21:32] "POST /api/sync HTTP/1.1" 200 -
+127.0.0.1 - - [18/Sep/2026 12:21:32] "POST /api/sync HTTP/1.1" 409 -
+.127.0.0.1 - - [18/Sep/2026 12:21:32] "POST /api/foto HTTP/1.1" 200 -
+127.0.0.1 - - [18/Sep/2026 12:21:32] "GET /fotos/bd54b02fae14b6b9ed73887ded339b8e.png HTTP/1.1" 200 -
+127.0.0.1 - - [18/Sep/2026 12:21:32] "GET /fotos/bd54b02fae14b6b9ed73887ded339b8e.png HTTP/1.1" 401 -
+127.0.0.1 - - [18/Sep/2026 12:21:32] "POST /api/foto HTTP/1.1" 400 -
+127.0.0.1 - - [18/Sep/2026 12:21:32] "POST /api/foto HTTP/1.1" 400 -
+127.0.0.1 - - [18/Sep/2026 12:21:32] "POST /api/foto HTTP/1.1" 400 -
+127.0.0.1 - - [18/Sep/2026 12:21:32] "POST /api/foto HTTP/1.1" 400 -
+.127.0.0.1 - - [18/Sep/2026 12:21:33] "POST /api/sync HTTP/1.1" 200 -
+127.0.0.1 - - [18/Sep/2026 12:21:33] "POST /api/sync HTTP/1.1" 409 -
+127.0.0.1 - - [18/Sep/2026 12:21:33] "POST /api/sync HTTP/1.1" 400 -
+.127.0.0.1 - - [18/Sep/2026 12:21:33] "POST /api/sync HTTP/1.1" 200 -
+127.0.0.1 - - [18/Sep/2026 12:21:33] "POST /api/sync HTTP/1.1" 200 -
+127.0.0.1 - - [18/Sep/2026 12:21:33] "POST /api/sync HTTP/1.1" 200 -
+127.0.0.1 - - [18/Sep/2026 12:21:33] "POST /api/sync HTTP/1.1" 409 -
+.
+----------------------------------------------------------------------
+Ran 9 tests in 5.362s
+
+OK
+127.0.0.1 - - [18/Sep/2026 12:21:36] "GET / HTTP/1.1" 200 -
+127.0.0.1 - - [18/Sep/2026 12:21:36] "GET /style.css HTTP/1.1" 200 -
+127.0.0.1 - - [18/Sep/2026 12:21:36] "GET /sincronizacao.js HTTP/1.1" 200 -
+127.0.0.1 - - [18/Sep/2026 12:21:36] "GET /logica.js HTTP/1.1" 200 -
+127.0.0.1 - - [18/Sep/2026 12:21:36] "GET /api/state HTTP/1.1" 401 -
+127.0.0.1 - - [18/Sep/2026 12:21:36] "GET /favicon.ico HTTP/1.1" 401 -
+127.0.0.1 - - [18/Sep/2026 12:21:36] "GET /api/state HTTP/1.1" 200 -
+PASS missing access key opens setup and saved key restores online sync
+127.0.0.1 - - [18/Sep/2026 12:21:37] "GET / HTTP/1.1" 200 -
+127.0.0.1 - - [18/Sep/2026 12:21:37] "GET /style.css HTTP/1.1" 200 -
+127.0.0.1 - - [18/Sep/2026 12:21:37] "GET /sincronizacao.js HTTP/1.1" 200 -
+127.0.0.1 - - [18/Sep/2026 12:21:37] "GET /logica.js HTTP/1.1" 200 -
+127.0.0.1 - - [18/Sep/2026 12:21:37] "GET /api/state HTTP/1.1" 200 -
+127.0.0.1 - - [18/Sep/2026 12:21:37] "GET /favicon.ico HTTP/1.1" 401 -
+127.0.0.1 - - [18/Sep/2026 12:21:37] "GET /api/state HTTP/1.1" 200 -
+127.0.0.1 - - [18/Sep/2026 12:21:37] "POST /api/foto HTTP/1.1" 200 -
+127.0.0.1 - - [18/Sep/2026 12:21:37] "GET /api/state HTTP/1.1" 200 -
+127.0.0.1 - - [18/Sep/2026 12:21:38] "POST /api/sync HTTP/1.1" 200 -
+127.0.0.1 - - [18/Sep/2026 12:21:38] "GET /api/state HTTP/1.1" 200 -
+127.0.0.1 - - [18/Sep/2026 12:21:38] "GET / HTTP/1.1" 200 -
+127.0.0.1 - - [18/Sep/2026 12:21:38] "GET /style.css HTTP/1.1" 200 -
+127.0.0.1 - - [18/Sep/2026 12:21:38] "GET /logica.js HTTP/1.1" 200 -
+127.0.0.1 - - [18/Sep/2026 12:21:38] "GET /sincronizacao.js HTTP/1.1" 200 -
+127.0.0.1 - - [18/Sep/2026 12:21:38] "GET /api/state HTTP/1.1" 200 -
+127.0.0.1 - - [18/Sep/2026 12:21:38] "GET /favicon.ico HTTP/1.1" 401 -
+PASS authenticated gallery upload and reload
+127.0.0.1 - - [18/Sep/2026 12:21:38] "GET /api/state HTTP/1.1" 200 -
+127.0.0.1 - - [18/Sep/2026 12:21:38] "POST /api/sync HTTP/1.1" 200 -
+127.0.0.1 - - [18/Sep/2026 12:21:38] "GET / HTTP/1.1" 200 -
+127.0.0.1 - - [18/Sep/2026 12:21:38] "GET /style.css HTTP/1.1" 200 -
+127.0.0.1 - - [18/Sep/2026 12:21:38] "GET /sincronizacao.js HTTP/1.1" 200 -
+127.0.0.1 - - [18/Sep/2026 12:21:38] "GET /logica.js HTTP/1.1" 200 -
+127.0.0.1 - - [18/Sep/2026 12:21:38] "GET /api/state HTTP/1.1" 200 -
+127.0.0.1 - - [18/Sep/2026 12:21:38] "GET /favicon.ico HTTP/1.1" 401 -
+127.0.0.1 - - [18/Sep/2026 12:21:38] "GET /api/state HTTP/1.1" 200 -
+PASS saved quotation and draft/customer persistence
+127.0.0.1 - - [18/Sep/2026 12:21:39] "GET / HTTP/1.1" 200 -
+127.0.0.1 - - [18/Sep/2026 12:21:39] "GET /style.css HTTP/1.1" 200 -
+127.0.0.1 - - [18/Sep/2026 12:21:39] "GET /sincronizacao.js HTTP/1.1" 200 -
+127.0.0.1 - - [18/Sep/2026 12:21:39] "GET /logica.js HTTP/1.1" 200 -
+PASS offline sale + stock retained together across reload
+127.0.0.1 - - [18/Sep/2026 12:21:39] "GET /api/state HTTP/1.1" 200 -
+127.0.0.1 - - [18/Sep/2026 12:21:39] "POST /api/sync HTTP/1.1" 200 -
+127.0.0.1 - - [18/Sep/2026 12:21:39] "GET /api/state HTTP/1.1" 200 -
+127.0.0.1 - - [18/Sep/2026 12:21:39] "GET /api/state HTTP/1.1" 200 -
+127.0.0.1 - - [18/Sep/2026 12:21:39] "POST /api/sync HTTP/1.1" 200 -
+127.0.0.1 - - [18/Sep/2026 12:21:39] "GET /api/state HTTP/1.1" 200 -
+PASS lost response retry does not duplicate sale or stock deduction
+127.0.0.1 - - [18/Sep/2026 12:21:39] "GET /api/state HTTP/1.1" 200 -
+PASS settings connection test; no page errors
+127.0.0.1 - - [18/Sep/2026 12:21:41] "GET / HTTP/1.1" 200 -
+127.0.0.1 - - [18/Sep/2026 12:21:41] "GET /style.css HTTP/1.1" 200 -
+127.0.0.1 - - [18/Sep/2026 12:21:41] "GET /sincronizacao.js HTTP/1.1" 200 -
+127.0.0.1 - - [18/Sep/2026 12:21:41] "GET /logica.js HTTP/1.1" 200 -
+127.0.0.1 - - [18/Sep/2026 12:21:41] "GET /api/state HTTP/1.1" 200 -
+127.0.0.1 - - [18/Sep/2026 12:21:41] "GET /favicon.ico HTTP/1.1" 401 -
+127.0.0.1 - - [18/Sep/2026 12:21:41] "GET /fotos/48aad021c5aba9179376fb15e1324914.jpg HTTP/1.1" 200 -
+127.0.0.1 - - [18/Sep/2026 12:21:41] "GET /fotos/48aad021c5aba9179376fb15e1324914.jpg HTTP/1.1" 200 -
+127.0.0.1 - - [18/Sep/2026 12:21:41] "GET /fotos/48aad021c5aba9179376fb15e1324914.jpg HTTP/1.1" 200 -
+127.0.0.1 - - [18/Sep/2026 12:21:41] "GET /fotos/48aad021c5aba9179376fb15e1324914.jpg HTTP/1.1" 200 -
+127.0.0.1 - - [18/Sep/2026 12:21:41] "GET /api/state HTTP/1.1" 200 -
+127.0.0.1 - - [18/Sep/2026 12:21:41] "POST /api/sync HTTP/1.1" 200 -
+127.0.0.1 - - [18/Sep/2026 12:21:41] "GET /api/state HTTP/1.1" 200 -
+127.0.0.1 - - [18/Sep/2026 12:21:41] "POST /api/sync HTTP/1.1" 409 -
+127.0.0.1 - - [18/Sep/2026 12:21:41] "GET /api/state HTTP/1.1" 200 -
+127.0.0.1 - - [18/Sep/2026 12:21:41] "GET / HTTP/1.1" 200 -
+127.0.0.1 - - [18/Sep/2026 12:21:41] "GET /style.css HTTP/1.1" 200 -
+127.0.0.1 - - [18/Sep/2026 12:21:41] "GET /sincronizacao.js HTTP/1.1" 200 -
+127.0.0.1 - - [18/Sep/2026 12:21:41] "GET /logica.js HTTP/1.1" 200 -
+127.0.0.1 - - [18/Sep/2026 12:21:41] "GET /api/state HTTP/1.1" 200 -
+127.0.0.1 - - [18/Sep/2026 12:21:41] "POST /api/sync HTTP/1.1" 409 -
+127.0.0.1 - - [18/Sep/2026 12:21:41] "GET /favicon.ico HTTP/1.1" 401 -
+PASS stale edit rejected and local pending edit preserved after reload
+127.0.0.1 - - [18/Sep/2026 12:21:42] "GET /api/state HTTP/1.1" 200 -
+PASS conflict recovery exports pending operations + cached photos before reloading
+127.0.0.1 - - [18/Sep/2026 12:21:42] "GET /api/backup HTTP/1.1" 200 -
+127.0.0.1 - - [18/Sep/2026 12:21:42] "GET /api/state HTTP/1.1" 200 -
+127.0.0.1 - - [18/Sep/2026 12:21:42] "GET /api/state HTTP/1.1" 200 -
+127.0.0.1 - - [18/Sep/2026 12:21:42] "POST /api/restore HTTP/1.1" 200 -
+127.0.0.1 - - [18/Sep/2026 12:21:42] "GET /api/state HTTP/1.1" 200 -
+PASS authenticated complete backup/restore and stale-device invalidation
+PASS responsive screens and no browser errors

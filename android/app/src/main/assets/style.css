@@ -23,6 +23,9 @@ body {
     --cor-superficie: #fff;
     --cor-cartao: #e7f2f0;
     --cor-borda: #c6d9d7;
+    --cor-suave: #496963;
+    --cor-acao: #1565c0;
+    color-scheme: light;
 }
 
 body.temaEscuro {
@@ -31,6 +34,9 @@ body.temaEscuro {
     --cor-superficie: #2b2b2b;
     --cor-cartao: #263b39;
     --cor-borda: #52736e;
+    --cor-suave: #b1cdc7;
+    --cor-acao: #8fc3ff;
+    color-scheme: dark;
 }
 
 body > header,
@@ -40,12 +46,17 @@ main {
 }
 
 .appHeader {
-    padding: 20px 0 14px;
+    padding: 20px 0 18px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
 }
 
 .appHeader h1 {
-    margin: 0 0 16px;
-    font-size: 24px;
+    margin: 0;
+    font-size: clamp(20px, 5vw, 24px);
+    line-height: 1.2;
 }
 
 .tela {
@@ -65,7 +76,7 @@ main {
 
 .opcoesInicio {
     display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 14px;
     margin-top: 14px;
 }
@@ -90,7 +101,11 @@ main {
 }
 
 .opcaoIcone {
-    font-size: 30px;
+    display: grid;
+    place-items: center;
+    width: 44px;
+    height: 44px;
+    color: var(--cor-acao);
 }
 
 .opcaoInicio strong {
@@ -98,7 +113,7 @@ main {
 }
 
 .opcaoInicio small {
-    color: #56736f;
+    color: var(--cor-suave);
     font-size: 14px;
 }
 
@@ -113,6 +128,7 @@ main {
 .acoesCabecalho {
     display: flex;
     align-items: center;
+    flex-wrap: wrap;
     gap: 8px;
 }
 
@@ -128,7 +144,7 @@ main {
 
 .eyebrow {
     margin: 0 0 4px;
-    color: #56736f;
+    color: var(--cor-suave);
     font-size: 12px;
     font-weight: bold;
     letter-spacing: 0.08em;
@@ -165,8 +181,17 @@ main {
 }
 
 button {
-    min-height: 44px;
-    padding: 10px 14px;
+    min-height: 48px;
+    padding: 12px 16px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    font-family: inherit;
+    font-weight: 600;
+    line-height: 1.4;
+    cursor: pointer;
+    touch-action: manipulation;
     border: 0;
     border-radius: 6px;
     background: #1565c0;
@@ -178,17 +203,21 @@ button:disabled {
     opacity: 0.55;
 }
 
+#sincronizarAgora {
+    width: 48px;
+    height: 48px;
+    flex: 0 0 48px;
+    padding: 12px;
+}
+
 .botaoExcluir {
     background: #b3261e;
-    padding: 8px 12px;
-    font-size: 22px;
-    line-height: 1;
-    margin: 2%;
+    font-size: 15px;
 }
 
 ul {
     width: 100%;
-    padding-left: 20px;
+    padding-left: 0;
 }
 
 li {
@@ -215,6 +244,19 @@ li {
 
 .pisoInformacoes {
     font-weight: 600;
+}
+
+#previaFotos {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+#previaFotos img {
+    width: 100px;
+    height: 100px;
+    object-fit: cover;
+    border-radius: 8px;
 }
 
 .galeria {
@@ -344,8 +386,14 @@ form {
 input,
 select {
     width: 100%;
-    min-height: 42px;
-    padding: 8px;
+    min-height: 48px;
+    min-width: 0;
+    padding: 10px 12px;
+    border: 1px solid var(--cor-borda);
+    border-radius: 8px;
+    background: var(--cor-superficie);
+    color: var(--cor-texto);
+    font-family: inherit;
     font-size: 16px;
 }
 
@@ -360,7 +408,9 @@ select {
 }
 
 .botaoCamera {
-    flex: 0 0 52px;
+    flex: 0 0 48px;
+    width: 48px;
+    height: 48px;
     padding: 8px;
     font-size: 22px;
     line-height: 1;
@@ -392,4 +442,69 @@ pre {
     .filtrosRelatorio input:last-child {
         grid-column: 2;
     }
+}
+
+/* Shared control sizing and a consistent, offline-ready SVG icon set. */
+.icone { width: 20px; height: 20px; flex-shrink: 0; pointer-events: none; }
+.opcaoIcone .icone { width: 30px; height: 30px; }
+.botaoFundo { width: 48px; height: 48px; flex: 0 0 48px; padding: 12px; }
+.iconeSol, .temaEscuro .iconeLua { display: none; }
+.temaEscuro .iconeSol { display: block; }
+.botaoSecundario, .botaoVoltar, .botaoFundo {
+    background: var(--cor-superficie); color: var(--cor-texto);
+    border: 1px solid var(--cor-borda);
+}
+button:focus-visible, .pisoCard:focus-visible, input:focus-visible, select:focus-visible {
+    outline: 3px solid var(--cor-acao); outline-offset: 3px;
+}
+button:active { filter: brightness(.94); }
+button:disabled { cursor: wait; }
+.botaoCarrinho { font-size: 15px; padding: 12px 16px; }
+#contadorOrcamento { white-space: nowrap; }
+.opcaoInicio { border-radius: 12px; align-content: start; }
+.opcaoInicio strong, .opcaoInicio small { line-height: 1.4; }
+.opcaoInicio small { font-weight: 400; }
+.telaCabecalho { flex-wrap: wrap; }
+.acoesCabecalho { flex-wrap: wrap; }
+.acoesDialogo { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 20px; }
+.acoesDialogo > button { flex: 1 1 150px; }
+dialog { border-radius: 14px; max-height: calc(100dvh - 32px); padding-top: 68px; }
+.fecharModal { position: absolute; top: 10px; right: 10px; width: 48px; height: 48px; padding: 12px; }
+#pisosForm { padding: 0; border: 0; overflow: visible; }
+form label { margin-top: 8px; font-size: 14px; font-weight: 600; }
+form button[type="submit"] { margin-top: 12px; }
+.seletorFotos { align-items: stretch; }
+.seletorFotos input { min-width: 0; padding: 0; font-size: 13px; }
+input::file-selector-button {
+    min-height: 46px; border: 0; border-right: 1px solid var(--cor-borda);
+    padding: 10px; margin-right: 8px; background: var(--cor-cartao);
+    color: var(--cor-texto); font: inherit; font-weight: 600;
+}
+@media (max-width: 600px) {
+    .opcoesInicio { grid-template-columns: 1fr; }
+    .inicioEscolha { min-height: auto; padding-top: 20px; }
+    .opcaoInicio { grid-template-columns: 44px 1fr; gap: 4px 14px; min-height: 112px; padding: 20px 16px; }
+    .opcaoIcone { grid-row: 1 / 3; align-self: center; }
+    .opcaoInicio strong, .opcaoInicio small { grid-column: 2; }
+    .acoesCabecalho { width: 100%; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    #alternarInativos { grid-column: 1 / -1; }
+    .acoesCabecalho > button { padding: 12px 8px; }
+}
+
+#selecionarFotos { flex: 1; }
+
+#statusSync { max-width: 720px; margin: 0 auto 12px; color: var(--cor-suave); font-size: 13px; overflow-wrap: anywhere; }
+#resultadoConexao { overflow-wrap: anywhere; }
+.appHeader { flex-wrap: wrap; }
+.appHeader h1 { flex: 1 1 180px; }
+#orcamentosSalvos li, #historicoEstoque li { border-bottom: 1px solid var(--cor-borda); padding-bottom: 12px; }
+.fotosSalvas { display: flex; gap: 12px; flex-wrap: wrap; }
+.fotosSalvas > div { width: 140px; display: grid; gap: 6px; }
+.fotosSalvas img { width: 140px; height: 100px; object-fit: cover; border-radius: 8px; }
+#orcamentoImpressao { display: none; }
+@media print {
+    body > * { display: none !important; }
+    body { padding: 24px; background: white; color: black; }
+    #orcamentoImpressao { display: block !important; white-space: pre-wrap; line-height: 1.8; }
+    dialog::backdrop { display: none; }
 }

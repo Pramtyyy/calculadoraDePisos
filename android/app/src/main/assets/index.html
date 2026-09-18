@@ -1,35 +1,39 @@
 <!DOCTYPE html>
-<html lang="en">
-    <link rel="stylesheet" href="style.css">
-    <script src="logica.js" defer></script>
+<html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="style.css">
+    <script src="sincronizacao.js" defer></script>
+    <script src="logica.js" defer></script>
     <title>Calculador de Pisos</title>
 </head>
 <body>
     <header class="appHeader">
         <h1>Calculador de Pisos</h1>
-        <button type="button" id="alternarFundo" class="botaoFundo" aria-label="Alternar tema" title="Alternar tema">&#9788;</button>
+        <button id="sincronizarAgora" type="button" class="botaoSecundario" aria-label="Sincronizar agora" title="Sincronizar agora"><svg class="icone" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 7v5h-5M4 17v-5h5"/><path d="M6.1 6.1A8 8 0 0119.5 9M4.5 15a8 8 0 0013.4 2.9"/></svg></button>
+        <button type="button" id="abrirConfiguracoes" class="botaoSecundario" aria-label="Configurações" title="Configurações">Ajustes</button>
+        <button type="button" id="alternarFundo" class="botaoFundo" aria-label="Alternar tema" title="Alternar tema"><svg class="icone iconeLua" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M20.5 13.5A9 9 0 0110.5 3.5a9 9 0 1010 10z"/></svg><svg class="icone iconeSol" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M2 12h2m16 0h2M5 5l1.5 1.5m11 11L19 19M5 19l1.5-1.5m11-11L19 5"/></svg></button>
     </header>
 
+    <p id="statusSync" role="status" aria-live="polite">Dados locais</p>
     <main>
         <section id="telaPrincipal" class="tela ativa">
             <div class="inicioEscolha">
                 <p class="eyebrow">O que você deseja fazer?</p>
                 <div class="opcoesInicio">
                     <button type="button" id="irParaCadastro" class="opcaoInicio">
-                        <span class="opcaoIcone">&#9633;</span>
+                        <span class="opcaoIcone"><svg class="icone " viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg></span>
                         <strong>Cadastrar pisos</strong>
                         <small>Adicionar ou editar produtos</small>
                     </button>
                     <button type="button" id="irParaOrcamento" class="opcaoInicio">
-                        <span class="opcaoIcone">&#128722;</span>
+                        <span class="opcaoIcone"><svg class="icone " viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M3 3h2l3 12h11l2-8H6"/><circle cx="9" cy="20" r="1"/><circle cx="18" cy="20" r="1"/></svg></span>
                         <strong>Fazer orçamento</strong>
                         <small>Escolher pisos e completar vendas</small>
                     </button>
                     <button type="button" id="irParaRelatorios" class="opcaoInicio">
-                        <span class="opcaoIcone">&#128203;</span>
+                        <span class="opcaoIcone"><svg class="icone " viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 16v-3m4 3V8m4 8v-5"/></svg></span>
                         <strong>Ver relatórios</strong>
                         <small>Acessar vendas realizadas</small>
                     </button>
@@ -43,7 +47,7 @@
                     <p class="eyebrow">Vendas</p>
                     <h2>Relatório de vendas</h2>
                 </div>
-                <button type="button" id="voltarRelatorios" class="botaoVoltar">Voltar</button>
+                <button type="button" id="voltarRelatorios" class="botaoVoltar"><svg class="icone " viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M19 12H5m6-6l-6 6 6 6"/></svg>Voltar</button>
             </div>
             <div class="filtrosRelatorio">
                 <label for="dataInicialRelatorio">De:</label>
@@ -67,9 +71,9 @@
                     <h2>Editar pisos</h2>
                 </div>
                 <div class="acoesCabecalho">
-                    <button type="button" id="voltarCadastro" class="botaoVoltar">Voltar</button>
-                    <button type="button" id="abrirFormulario">Cadastrar piso</button>
-                    <button type="button" id="alternarInativos">Mostrar inativos</button>
+                    <button type="button" id="voltarCadastro" class="botaoVoltar"><svg class="icone " viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M19 12H5m6-6l-6 6 6 6"/></svg>Voltar</button>
+                    <button type="button" id="abrirFormulario"><svg class="icone " viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M12 5v14M5 12h14"/></svg>Cadastrar piso</button>
+                    <button type="button" id="alternarInativos" class="botaoSecundario" aria-pressed="false">Mostrar inativos</button>
                 </div>
             </div>
             <label for="buscaPisos" class="campoBusca">Buscar piso:</label>
@@ -84,8 +88,9 @@
                     <h2>Escolha os pisos</h2>
                 </div>
                 <div class="acoesCabecalho">
-                    <button type="button" id="voltarOrcamento" class="botaoVoltar">Voltar</button>
-                    <button type="button" id="abrirOrcamento" class="botaoCarrinho" aria-label="Abrir orçamento" title="Abrir orçamento">&#128722; <span id="contadorOrcamento">0</span></button>
+                    <button type="button" id="voltarOrcamento" class="botaoVoltar"><svg class="icone " viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M19 12H5m6-6l-6 6 6 6"/></svg>Voltar</button>
+                    <button type="button" id="abrirOrcamentosSalvos" class="botaoSecundario" aria-haspopup="dialog" aria-controls="modalOrcamentosSalvos">Orçamentos salvos</button>
+                    <button type="button" id="abrirOrcamento" class="botaoCarrinho" aria-label="Abrir orçamento" title="Abrir orçamento"><svg class="icone " viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M3 3h2l3 12h11l2-8H6"/><circle cx="9" cy="20" r="1"/><circle cx="18" cy="20" r="1"/></svg> <span id="contadorOrcamento">0</span></button>
                 </div>
             </div>
             <label for="buscaPisosOrcamento" class="campoBusca">Buscar piso:</label>
@@ -96,6 +101,7 @@
     </main>
 
     <dialog id="modal">
+        <button type="button" class="fecharModal botaoSecundario" data-fechar="modal" aria-label="Fechar"><svg class="icone " viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M6 6l12 12M6 18L18 6"/></svg></button>
         <form id="pisosForm">
             <label for="nome">Nome:</label>
             <input type="text" id="nome" name="nome" required>
@@ -108,9 +114,12 @@
 
             <label for="fotos">Fotos do piso (até 3):</label>
             <div class="seletorFotos">
-                <input type="file" id="fotos" name="fotos" accept="image/*" multiple>
-                <button type="button" id="abrirCamera" class="botaoCamera" aria-label="Tirar foto" title="Tirar foto">&#128247;</button>
+                <input type="file" id="fotos" name="fotos" accept="image/*" multiple hidden>
+                <button type="button" id="selecionarFotos" class="botaoSecundario"><svg class="icone" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8" cy="8" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>Galeria</button>
+                <button type="button" id="abrirCamera" class="botaoCamera" aria-label="Tirar foto" title="Tirar foto"><svg class="icone " viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M8 5l1-2h6l1 2h4a1 1 0 011 1v13a1 1 0 01-1 1H4a1 1 0 01-1-1V6a1 1 0 011-1z"/><circle cx="12" cy="12" r="4"/></svg></button>
             </div>
+            <div id="fotosSalvas" class="fotosSalvas"></div>
+            <div id="previaFotos"></div>
 
             <label for="altura">Altura (cm):</label>
             <input type="number" id="altura" name="altura" step="0.5" required>
@@ -148,6 +157,8 @@
             <label for="preco">Preço por m²:</label>
             <input type="number" id="preco" name="preco" min="0" step="0.01" required>
 
+            <label for="estoqueMinimo">Alerta de estoque (caixas):</label>
+            <input type="number" id="estoqueMinimo" name="estoqueMinimo" min="0" step="1" value="0">
             <label for="estoque">Estoque (caixas):</label>
             <input type="number" id="estoque" name="estoque" min="0" step="1" required>
 
@@ -160,19 +171,24 @@
 
     <div>
         <dialog id="modalDetalhes">
+        <button type="button" class="fecharModal botaoSecundario" data-fechar="modalDetalhes" aria-label="Fechar"><svg class="icone " viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M6 6l12 12M6 18L18 6"/></svg></button>
             <pre id="detalhesPiso"></pre>
             <div id="galeriaDetalhes" class="galeria"></div>
-            <button type="button" id="editarPiso">Editar</button>
+            <div class="acoesDialogo">
+<button type="button" id="editarPiso" class="botaoSecundario"><svg class="icone " viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M14 5l5 5M4 20l5-1L20 8a2 2 0 00-5-5L4 14z"/></svg>Editar</button>
             <button type="button" id="venderPiso">Adicionar ao orçamento</button>
             <button type="button" id="excluirPiso" class="botaoExcluir" aria-label="Inativar piso" title="Inativar piso">Inativar piso</button>
+</div>
         </dialog>
     </div>
 
     <dialog id="modalGaleria">
+        <button type="button" class="fecharModal botaoSecundario" data-fechar="modalGaleria" aria-label="Fechar"><svg class="icone " viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M6 6l12 12M6 18L18 6"/></svg></button>
         <div id="galeriaAmpliada" class="galeriaAmpliada"></div>
     </dialog>
 
     <dialog id="modalVenda">
+        <button type="button" class="fecharModal botaoSecundario" data-fechar="modalVenda" aria-label="Fechar"><svg class="icone " viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M6 6l12 12M6 18L18 6"/></svg></button>
         <form id="vendaForm">
             <h2>Adicionar ao orçamento</h2>
             <p id="produtoVenda"></p>
@@ -192,22 +208,67 @@
         </form>
     </dialog>
 
+    <dialog id="modalOrcamentosSalvos" aria-labelledby="tituloOrcamentosSalvos">
+        <button type="button" class="fecharModal botaoSecundario" data-fechar="modalOrcamentosSalvos" aria-label="Fechar orçamentos salvos">×</button>
+        <h2 id="tituloOrcamentosSalvos">Orçamentos salvos</h2>
+        <ul id="orcamentosSalvos"></ul>
+    </dialog>
+
     <dialog id="modalOrcamento">
+        <button type="button" class="fecharModal botaoSecundario" data-fechar="modalOrcamento" aria-label="Fechar"><svg class="icone " viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M6 6l12 12M6 18L18 6"/></svg></button>
         <h2>Orçamento</h2>
+        <label for="clienteOrcamento">Cliente</label><input id="clienteOrcamento" maxlength="200" autocomplete="name">
+        <label for="telefoneOrcamento">Telefone (opcional)</label><input id="telefoneOrcamento" type="tel" maxlength="100" autocomplete="tel">
         <ul id="listaOrcamento"></ul>
+        <div class="acoesDialogo">
+            <button type="button" id="salvarOrcamento">Salvar orçamento</button>
+            <button type="button" id="compartilharOrcamento" class="botaoSecundario">Compartilhar</button>
+            <button type="button" id="imprimirOrcamento" class="botaoSecundario">Imprimir / PDF</button>
+        </div>
         <p>Metragem total: <strong id="metragemOrcamento">0.00 m²</strong></p>
         <p>Valor total: <strong id="valorOrcamento">R$ 0,00</strong></p>
         <p>Quantidade de argamassa: <strong id="quantidadeArgamassa">0 un</strong></p>
-        <button type="button" id="finalizarOrcamento">Finalizar venda</button>
-        <button type="button" id="limparOrcamento">Limpar orçamento</button>
+        <div class="acoesDialogo">
+<button type="button" id="finalizarOrcamento">Finalizar venda</button>
+        <button type="button" id="limparOrcamento" class="botaoSecundario">Limpar orçamento</button>
+</div>
     </dialog>
 
     <dialog id="modalConfirmacaoVenda">
+        <button type="button" class="fecharModal botaoSecundario" data-fechar="modalConfirmacaoVenda" aria-label="Fechar"><svg class="icone " viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M6 6l12 12M6 18L18 6"/></svg></button>
         <h2>Confirmar venda</h2>
         <p>Confirmar a venda e baixar os itens do estoque?</p>
-        <button type="button" id="cancelarConfirmacaoVenda">Cancelar</button>
+        <div class="acoesDialogo">
+<button type="button" id="cancelarConfirmacaoVenda" class="botaoSecundario">Cancelar</button>
         <button type="button" id="confirmarVenda">Confirmar</button>
+</div>
     </dialog>
 
+    <dialog id="modalConfiguracoes">
+        <button type="button" class="fecharModal botaoSecundario" data-fechar="modalConfiguracoes" aria-label="Fechar">×</button>
+        <h2>Configurações</h2>
+        <form id="configForm">
+            <label for="servidorConfig">Endereço do servidor</label><input id="servidorConfig" type="url" placeholder="http://192.168.0.5:8000">
+            <small>Deixe vazio para trabalhar somente neste aparelho.</small>
+            <label for="chaveConfig">Chave de acesso</label><input id="chaveConfig" type="password" autocomplete="off">
+            <small>A chave fica no arquivo .server-token do computador servidor.</small>
+            <button type="submit">Salvar configurações</button>
+        </form>
+        <div class="acoesDialogo">
+            <button id="testarConexao" type="button" class="botaoSecundario">Testar conexão</button>
+        </div>
+        <p id="resultadoConexao" role="status"></p>
+        <h3>Backup e recuperação</h3>
+        <div class="acoesDialogo">
+            <button id="backupServidor" type="button" class="botaoSecundario">Baixar backup completo</button>
+            <button id="exportarLocal" type="button" class="botaoSecundario">Exportar dados locais</button>
+            <button id="recarregarServidor" type="button" class="botaoSecundario">Recarregar do servidor</button>
+        </div>
+        <p>Recarregar descarta as operações pendentes após exportar uma cópia. Use quando houver conflito para refazer somente as alterações necessárias.</p>
+        <label for="importarLocal">Importar exportação deste aparelho (.json)</label><input id="importarLocal" type="file" accept=".json">
+        <label for="restaurarArquivo">Restaurar backup completo (.zip)</label><input id="restaurarArquivo" type="file" accept=".zip">
+        <h3>Histórico de estoque</h3><ul id="historicoEstoque"></ul>
+    </dialog>
+    <section id="orcamentoImpressao" aria-hidden="true"></section>
 </body>
 </html>

@@ -2,7 +2,8 @@ package br.com.calculadordepisos;
 
 import android.Manifest;
 import android.app.Activity;
-import android.content.ContentValues;
+import android.content.ClipData;
+import android.support.v4.content.FileProvider;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
@@ -43,32 +44,32 @@ public class MainActivity extends Activity {
     private static final int REQUEST_CAMERA = 1003;
     private static final int REQUEST_CAMERA_PERMISSION = 1004;
     private WebView webView;
+    private FrameLayout root;
     private ValueCallback<Uri[]> filePathCallback;
     private Uri cameraOutputUri;
+    private static final int REQUEST_EXPORT = 1005;
+    private java.io.File exportFile;
+    private volatile boolean exportBusy;
+    private String exportName;
+    private String exportMime;
 
     @SuppressWarnings("deprecation")
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        if (savedInstanceState != null) {
+            String savedUri = savedInstanceState.getString("cameraOutputUri");
+            if (savedUri != null) cameraOutputUri = Uri.parse(savedUri);
+        }
         Window window = getWindow();
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
             window.setDecorFitsSystemWindows(false);
-            WindowInsetsController controller = window.getDecorView().getWindowInsetsController();
-            if (controller != null) {
-                controller.setSystemBarsAppearance(
-                    WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS ,
-                    WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS
-                );
-            }
-        } else {
-            window.getDecorView().setSystemUiVisibility(View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR);
         }
         window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE);
-        window.setStatusBarColor(0xFFFFFFFF);
-        window.setNavigationBarColor(0xFFFFFFFF);
 
-        FrameLayout root = new FrameLayout(this);
+        root = new FrameLayout(this);
         webView = new WebView(this);
+        WebView.setWebContentsDebuggingEnabled((getApplicationInfo().flags & android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE) != 0);
         root.addView(webView, new FrameLayout.LayoutParams(
             ViewGroup.LayoutParams.MATCH_PARENT,
             ViewGroup.LayoutParams.MATCH_PARENT
@@ -96,6 +97,9 @@ public class MainActivity extends Activity {
         });
 
         webView.setWebViewClient(new WebViewClient() {
+            @Override public boolean shouldOverrideUrlLoading(WebView view, android.webkit.WebResourceRequest request) {
+                return !request.getUrl().toString().startsWith("file:///android_asset/");
+            }
             @Override
             public android.webkit.WebResourceResponse shouldInterceptRequest(
                     WebView view, android.webkit.WebResourceRequest request
@@ -103,15 +107,17 @@ public class MainActivity extends Activity {
                 String url = request.getUrl().toString();
                 if (url.startsWith(FOTO_HOST)) {
                     String nomeArquivo = url.substring(FOTO_HOST.length());
+                    if (!nomeArquivo.matches("[a-zA-Z0-9_.-]+")) return new android.webkit.WebResourceResponse("text/plain", "UTF-8", 404, "Not Found", java.util.Collections.singletonMap("Access-Control-Allow-Origin", "*"), new java.io.ByteArrayInputStream(new byte[0]));
                     java.io.File arquivo = new java.io.File(new java.io.File(getFilesDir(), "fotos"), nomeArquivo);
                     if (arquivo.exists()) {
                         try {
                             return new android.webkit.WebResourceResponse(
-                                    "image/jpeg", null, new java.io.FileInputStream(arquivo)
+                                    "image/jpeg", null, 200, "OK", java.util.Collections.singletonMap("Access-Control-Allow-Origin", "*"), new java.io.FileInputStream(arquivo)
                             );
                         } catch (Exception ignored) {}
                     }
                 }
+                if (url.startsWith(FOTO_HOST)) return new android.webkit.WebResourceResponse("text/plain", "UTF-8", 404, "Not Found", java.util.Collections.singletonMap("Access-Control-Allow-Origin", "*"), new java.io.ByteArrayInputStream(new byte[0]));
                 return super.shouldInterceptRequest(view, request);
             }
         });
@@ -129,6 +135,7 @@ public class MainActivity extends Activity {
             @JavascriptInterface
             @SuppressWarnings("unused")
             public void open() {
+                runOnUiThread(() -> {
                 Intent intent = new Intent(Intent.ACTION_GET_CONTENT);
                 intent.addCategory(Intent.CATEGORY_OPENABLE);
                 intent.setType("image/*");
@@ -142,8 +149,10 @@ public class MainActivity extends Activity {
                     fallbackIntent.setType("image/*");
                     fallbackIntent.putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true);
                     fallbackIntent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
-                    startActivityForResult(fallbackIntent, REQUEST_ANDROID_PICKER);
+                    try { startActivityForResult(fallbackIntent, REQUEST_ANDROID_PICKER); }
+                    catch (Exception ignored) { avisarFalhaFoto(); }
                 }
+                });
             }
         }, "AndroidFilePicker");
 
@@ -158,6 +167,7 @@ public class MainActivity extends Activity {
             @JavascriptInterface
             @SuppressWarnings("unused")
             public void open() {
+                runOnUiThread(() -> {
                 if (checkSelfPermission(Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
                     requestPermissions(
                         new String[] { Manifest.permission.CAMERA },
@@ -166,10 +176,59 @@ public class MainActivity extends Activity {
                     return;
                 }
                 abrirCameraNativa();
+                });
             }
         }, "AndroidCamera");
 
 
+
+        webView.addJavascriptInterface(new Object() {
+            @JavascriptInterface public void texto(String text) {
+                runOnUiThread(() -> {
+                    Intent intent = new Intent(Intent.ACTION_SEND);
+                    intent.setType("text/plain"); intent.putExtra(Intent.EXTRA_TEXT, text);
+                    startActivity(Intent.createChooser(intent, "Compartilhar orçamento"));
+                });
+            }
+        }, "AndroidCompartilhar");
+        webView.addJavascriptInterface(new Object() {
+            @JavascriptInterface public void open() {
+                runOnUiThread(() -> {
+                    android.print.PrintManager manager = (android.print.PrintManager) getSystemService(PRINT_SERVICE);
+                    manager.print("Orçamento", webView.createPrintDocumentAdapter("Orçamento"), null);
+                });
+            }
+        }, "AndroidImprimir");
+        webView.addJavascriptInterface(new Object() {
+            @JavascriptInterface public synchronized boolean iniciar(String name, String mime) {
+                if (exportBusy) return false;
+                try {
+                    exportFile = java.io.File.createTempFile("export_", ".tmp", getCacheDir());
+                    exportBusy = true;
+                    exportName = name.replaceAll("[^a-zA-Z0-9._-]", "_"); exportMime = mime;
+                    return true;
+                } catch (Exception error) { return false; }
+            }
+            @JavascriptInterface public synchronized boolean parte(String encoded) {
+                if (exportFile == null || exportFile.length() > 256L * 1024 * 1024) return false;
+                try (java.io.FileOutputStream output = new java.io.FileOutputStream(exportFile, true)) {
+                    output.write(Base64.decode(encoded, Base64.DEFAULT)); return true;
+                } catch (Exception error) { return false; }
+            }
+            @JavascriptInterface public void concluir() {
+                runOnUiThread(() -> {
+                    try {
+                        Intent intent = new Intent(Intent.ACTION_CREATE_DOCUMENT);
+                        intent.addCategory(Intent.CATEGORY_OPENABLE); intent.setType(exportMime);
+                        intent.putExtra(Intent.EXTRA_TITLE, exportName);
+                        startActivityForResult(intent, REQUEST_EXPORT);
+                    } catch (Exception error) { cancelar(); informarExportacao(false); }
+                });
+            }
+            @JavascriptInterface public synchronized void cancelar() {
+                if (exportFile != null) exportFile.delete(); exportFile = null; exportBusy = false;
+            }
+        }, "AndroidSalvarArquivo");
 
         webView.setWebChromeClient(new WebChromeClient() {
             @Override
@@ -186,16 +245,16 @@ public class MainActivity extends Activity {
                 try {
                     Intent intent = new Intent(Intent.ACTION_GET_CONTENT);
                     intent.addCategory(Intent.CATEGORY_OPENABLE);
-                    intent.setType("image/*");
-                    intent.putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true);
+                    intent.setType(java.util.Arrays.asList(fileChooserParams.getAcceptTypes()).contains(".zip") ? "application/zip" : java.util.Arrays.asList(fileChooserParams.getAcceptTypes()).contains(".json") ? "application/json" : "image/*");
+                    intent.putExtra(Intent.EXTRA_ALLOW_MULTIPLE, fileChooserParams.getMode() == FileChooserParams.MODE_OPEN_MULTIPLE);
                     intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
                     startActivityForResult(intent, REQUEST_FILE_CHOOSER);
                 } catch (Exception exception) {
                     try {
                         Intent fallbackIntent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
                         fallbackIntent.addCategory(Intent.CATEGORY_OPENABLE);
-                        fallbackIntent.setType("image/*");
-                        fallbackIntent.putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true);
+                        fallbackIntent.setType(java.util.Arrays.asList(fileChooserParams.getAcceptTypes()).contains(".zip") ? "application/zip" : java.util.Arrays.asList(fileChooserParams.getAcceptTypes()).contains(".json") ? "application/json" : "image/*");
+                        fallbackIntent.putExtra(Intent.EXTRA_ALLOW_MULTIPLE, fileChooserParams.getMode() == FileChooserParams.MODE_OPEN_MULTIPLE);
                         fallbackIntent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
                         startActivityForResult(fallbackIntent, REQUEST_FILE_CHOOSER);
                     } catch (Exception fallbackException) {
@@ -206,8 +265,9 @@ public class MainActivity extends Activity {
                 return true;
             }
         });
-        webView.loadUrl("file:///android_asset/index.html");
         setContentView(root);
+        aplicarTemaBarras(getPreferences(MODE_PRIVATE).getBoolean("temaEscuro", false));
+        webView.loadUrl("file:///android_asset/index.html");
     }
 
 
@@ -215,12 +275,30 @@ public class MainActivity extends Activity {
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         switch (requestCode) {
+            case REQUEST_EXPORT: {
+                final java.io.File file = exportFile; exportFile = null;
+                if (file == null) break;
+                if (resultCode == RESULT_OK && data != null && data.getData() != null) {
+                    final Uri uri = data.getData();
+                    new Thread(() -> {
+                        try (java.io.InputStream input = new java.io.FileInputStream(file);
+                             java.io.OutputStream output = getContentResolver().openOutputStream(uri)) {
+                            if (output == null) throw new java.io.IOException("No output");
+                            byte[] buffer = new byte[65536]; int count;
+                            while ((count = input.read(buffer)) != -1) output.write(buffer, 0, count);
+                            informarExportacao(true);
+                        } catch (Exception error) { informarExportacao(false); }
+                        finally { file.delete(); }
+                    }).start();
+                } else { file.delete(); informarExportacao(false); }
+                break;
+            }
             case REQUEST_CAMERA: {
                 JSONArray arquivos = new JSONArray();
                 if (resultCode == RESULT_OK && cameraOutputUri != null) {
                     adicionarArquivo(arquivos, cameraOutputUri);
                 } else if (cameraOutputUri != null) {
-                    getContentResolver().delete(cameraOutputUri, null, null);
+                    // Camera output is a private cache file.
                 }
                 cameraOutputUri = null;
                 enviarArquivosBase64(arquivos);
@@ -240,6 +318,12 @@ public class MainActivity extends Activity {
             default:
                 super.onActivityResult(requestCode, resultCode, data);
         }
+    }
+
+    @Override
+    protected void onSaveInstanceState(Bundle state) {
+        if (cameraOutputUri != null) state.putString("cameraOutputUri", cameraOutputUri.toString());
+        super.onSaveInstanceState(state);
     }
 
     private Uri[] getUrisFromIntent(Intent data) {
@@ -266,51 +350,69 @@ public class MainActivity extends Activity {
         }
     }
 
+    @SuppressWarnings("deprecation")
     private void aplicarTemaBarras(boolean escuro) {
         Window window = getWindow();
-        int corBarras = escuro ? 0xFF1e1e1e : 0xFFFFFFFF;
-        window.setStatusBarColor(corBarras);
-        window.setNavigationBarColor(corBarras);
-        webView.setBackgroundColor(corBarras); // <- essa linha resolve o extraTopSpace
+        // Keep these colors aligned with --cor-fundo in style.css.
+        int corFundo = escuro ? 0xFF1E1E1E : 0xFFF5F5F5;
+        root.setBackgroundColor(corFundo);
+        webView.setBackgroundColor(corFundo);
+        window.setBackgroundDrawable(new android.graphics.drawable.ColorDrawable(corFundo));
+        getPreferences(MODE_PRIVATE).edit().putBoolean("temaEscuro", escuro).apply();
 
-        int flags = window.getDecorView().getSystemUiVisibility();
-        if (escuro) {
-            flags &= ~View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR;
-            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
-                flags &= ~View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR;
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            window.setStatusBarContrastEnforced(false);
+            window.setNavigationBarContrastEnforced(false);
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            // The root paints the inset areas behind transparent system bars.
+            window.setStatusBarColor(android.graphics.Color.TRANSPARENT);
+            window.setNavigationBarColor(android.graphics.Color.TRANSPARENT);
+            WindowInsetsController controller = window.getDecorView().getWindowInsetsController();
+            if (controller != null) {
+                int lightBars = WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS
+                        | WindowInsetsController.APPEARANCE_LIGHT_NAVIGATION_BARS;
+                controller.setSystemBarsAppearance(escuro ? 0 : lightBars, lightBars);
             }
         } else {
-            flags |= View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR;
-            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
-                flags |= View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR;
+            window.setStatusBarColor(corFundo);
+            // Android 6/7 cannot draw dark navigation icons on a light bar.
+            window.setNavigationBarColor(Build.VERSION.SDK_INT >= Build.VERSION_CODES.O
+                    ? corFundo : 0xFF1E1E1E);
+            int flags = window.getDecorView().getSystemUiVisibility();
+            flags = escuro ? flags & ~View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR
+                    : flags | View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR;
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                flags = escuro ? flags & ~View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR
+                        : flags | View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR;
             }
+            window.getDecorView().setSystemUiVisibility(flags);
         }
-        window.getDecorView().setSystemUiVisibility(flags);
     }
 
     private void abrirCameraNativa() {
         Intent intent = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
-        ContentValues valores = new ContentValues();
-        valores.put(MediaStore.Images.Media.DISPLAY_NAME, "piso_" + System.currentTimeMillis() + ".jpg");
-        valores.put(MediaStore.Images.Media.MIME_TYPE, "image/jpeg");
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            valores.put(MediaStore.Images.Media.RELATIVE_PATH, "Pictures/CalculadorDePisos");
-        }
-        cameraOutputUri = getContentResolver().insert(
-            MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
-            valores
-        );
         try {
+            java.io.File pasta = new java.io.File(getCacheDir(), "camera");
+            pasta.mkdirs();
+            java.io.File arquivo = java.io.File.createTempFile("piso_", ".jpg", pasta);
+            cameraOutputUri = FileProvider.getUriForFile(this, getPackageName() + ".files", arquivo);
+            intent.setClipData(ClipData.newRawUri("foto", cameraOutputUri));
             intent.putExtra(MediaStore.EXTRA_OUTPUT, cameraOutputUri);
             intent.addFlags(Intent.FLAG_GRANT_WRITE_URI_PERMISSION | Intent.FLAG_GRANT_READ_URI_PERMISSION);
             startActivityForResult(intent, REQUEST_CAMERA);
         } catch (Exception ignored) {
             if (cameraOutputUri != null) {
-                getContentResolver().delete(cameraOutputUri, null, null);
+                // Cache is managed by Android.
                 cameraOutputUri = null;
             }
             avisarFalhaFoto();
         }
+    }
+
+    private void informarExportacao(boolean sucesso) {
+        exportBusy = false;
+        webView.post(() -> webView.evaluateJavascript("window.onAndroidExportCompleted && window.onAndroidExportCompleted(" + sucesso + ")", null));
     }
 
     private void avisarFalhaFoto() {
@@ -347,7 +449,16 @@ public class MainActivity extends Activity {
             if (entrada == null) {
                 return;
             }
-            Bitmap bitmap = BitmapFactory.decodeStream(entrada);
+            BitmapFactory.Options options = new BitmapFactory.Options();
+            options.inJustDecodeBounds = true;
+            BitmapFactory.decodeStream(entrada, null, options);
+            options.inSampleSize = 1;
+            while (Math.max(options.outWidth, options.outHeight) / options.inSampleSize > 2400) options.inSampleSize *= 2;
+            options.inJustDecodeBounds = false;
+            Bitmap bitmap;
+            try (InputStream pixels = getContentResolver().openInputStream(uri)) {
+                bitmap = BitmapFactory.decodeStream(pixels, null, options);
+            }
             if (bitmap == null) {
                 return;
             }
@@ -378,7 +489,7 @@ public class MainActivity extends Activity {
     private void adicionarBitmap(JSONArray arquivos, Bitmap bitmap) {
         java.io.File pastaFotos = new java.io.File(getFilesDir(), "fotos");
         if (!pastaFotos.exists()) pastaFotos.mkdirs();
-        String nomeArquivo = "foto_" + System.currentTimeMillis() + ".jpg";
+        String nomeArquivo = "foto_" + java.util.UUID.randomUUID() + ".jpg";
         java.io.File arquivo = new java.io.File(pastaFotos, nomeArquivo);
         try (java.io.FileOutputStream saida = new java.io.FileOutputStream(arquivo)) {
             bitmap.compress(Bitmap.CompressFormat.JPEG, 82, saida);
@@ -387,9 +498,6 @@ public class MainActivity extends Activity {
     }
 
     private Bitmap aplicarOrientacao(Bitmap bitmap, Uri uri) {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.N) {
-            return bitmap;
-        }
         try (InputStream entrada = getContentResolver().openInputStream(uri)) {
             if (entrada == null) {
                 return bitmap;
@@ -407,6 +515,12 @@ public class MainActivity extends Activity {
                 matriz.postRotate(270);
             } else if (orientacao == ExifInterface.ORIENTATION_FLIP_HORIZONTAL) {
                 matriz.preScale(-1, 1);
+            } else if (orientacao == ExifInterface.ORIENTATION_FLIP_VERTICAL) {
+                matriz.preScale(1, -1);
+            } else if (orientacao == ExifInterface.ORIENTATION_TRANSPOSE) {
+                matriz.postRotate(90); matriz.postScale(-1, 1);
+            } else if (orientacao == ExifInterface.ORIENTATION_TRANSVERSE) {
+                matriz.postRotate(270); matriz.postScale(-1, 1);
             } else {
                 return bitmap;
             }
