@@ -520,7 +520,9 @@ function renderizarListaPisos(lista, termoBusca, somenteAtivos) {
     const pisos = obterPisos();
     const termo = termoBusca.trim().toLocaleLowerCase();
     const modelosExibidos = new Set();
-    pisos.forEach(function (piso, index) {
+    const pisosOrdenados = pisos.map((piso, index) => ({piso, index}))
+        .sort((a, b) => String(a.piso.nome ?? '').localeCompare(String(b.piso.nome ?? ''), 'pt-BR', {sensitivity: 'base', numeric: true}));
+    pisosOrdenados.forEach(function ({piso, index}) {
         if (somenteAtivos && piso.ativo === false) {
             return;
         }
@@ -548,7 +550,7 @@ function renderizarListaPisos(lista, termoBusca, somenteAtivos) {
             const linha = document.createElement('div');
             linha.className = 'linhaLote';
             const resumo = document.createElement('span');
-            resumo.textContent = `Bitola ${lote.bitola ?? '-'} · Tonalidade ${lote.tonalidade ?? '-'} · ${lote.estoque || 0} caixas e ${lote.pecasAbertas || 0} peças${lote.ativo === false ? ' · INATIVO' : Number(lote.estoqueMinimo) > 0 && obterTotalPecas(lote) <= Number(lote.estoqueMinimo) * Number(lote.pecasPorCaixa) ? ' · ESTOQUE BAIXO' : ''}`;
+            resumo.textContent = `Bitola ${lote.bitola ?? '-'} · Tonalidade ${lote.tonalidade ?? '-'} · ${lote.estoque || 0} caixas e ${lote.pecasAbertas || 0} peças · ${Number(calcularAreaTotalPiso(lote)).toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2})} m²${lote.ativo === false ? ' · INATIVO' : Number(lote.estoqueMinimo) > 0 && obterTotalPecas(lote) <= Number(lote.estoqueMinimo) * Number(lote.pecasPorCaixa) ? ' · ESTOQUE BAIXO' : ''}`;
             const abrir = document.createElement('button');
             abrir.type = 'button';
             abrir.className = 'botaoSecundario';
