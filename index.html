@@ -17,6 +17,10 @@
     </header>
 
     <p id="statusSync" role="status" aria-live="polite">Dados locais</p>
+    <aside id="avisoAtualizacao" hidden>
+        <span id="statusAtualizacao" role="status" aria-live="polite"></span>
+        <button id="instalarAtualizacao" type="button" hidden>Instalar atualização</button>
+    </aside>
     <main>
         <section id="telaPrincipal" class="tela ativa">
             <div class="inicioEscolha">
@@ -171,6 +175,7 @@
 
     <div>
         <dialog id="modalDetalhes">
+        <button type="button" id="imprimirEtiqueta" class="botaoSecundario">Imprimir etiqueta</button>
         <button type="button" class="fecharModal botaoSecundario" data-fechar="modalDetalhes" aria-label="Fechar"><svg class="icone " viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M6 6l12 12M6 18L18 6"/></svg></button>
             <pre id="detalhesPiso"></pre>
             <div id="galeriaDetalhes" class="galeria"></div>
@@ -272,6 +277,14 @@
             <button id="testarConexao" type="button" class="botaoSecundario">Testar conexão</button>
         </div>
         <p id="resultadoConexao" role="status"></p>
+        <section id="ajustesAtualizacao" hidden>
+            <h3>Atualização do aplicativo</h3>
+            <p>Versão instalada: <strong id="versaoInstalada"></strong></p>
+            <p>Novas versões são baixadas ao abrir o aplicativo conectado ao servidor. Você confirma a instalação no Android.</p>
+            <button id="verificarAtualizacao" type="button" class="botaoSecundario">Verificar atualização</button>
+            <p id="statusAtualizacaoAjustes" role="status" aria-live="polite"></p>
+            <button id="instalarAtualizacaoAjustes" type="button" hidden>Instalar atualização</button>
+        </section>
         <h3>Backup e recuperação</h3>
         <div class="acoesDialogo">
             <button id="backupServidor" type="button" class="botaoSecundario">Baixar backup completo</button>
@@ -283,6 +296,22 @@
         <label for="restaurarArquivo">Restaurar backup completo (.zip)</label><input id="restaurarArquivo" type="file" accept=".zip">
         <h3>Histórico de estoque</h3><ul id="historicoEstoque"></ul>
     </dialog>
+    <dialog id="modalEtiquetas" aria-labelledby="tituloEtiquetas">
+        <button type="button" class="fecharModal botaoSecundario" data-fechar="modalEtiquetas" aria-label="Fechar">×</button>
+        <h2 id="tituloEtiquetas">Imprimir etiquetas</h2>
+        <p>Pimaco 6282 · 101,6 × 33,9 mm · 14 etiquetas por folha Carta.</p>
+        <div id="previaEtiqueta" class="etiquetaPiso"></div>
+        <form id="etiquetasForm">
+            <label for="quantidadeEtiquetas">Quantidade de etiquetas</label>
+            <input id="quantidadeEtiquetas" type="number" min="1" max="1400" step="1" value="1" required>
+            <label for="posicaoEtiqueta">Posição inicial na primeira folha (1 a 14)</label>
+            <input id="posicaoEtiqueta" type="number" min="1" max="14" step="1" value="1" required>
+            <p>Conte da esquerda para a direita, de cima para baixo.</p>
+            <p>Na impressão, selecione papel Carta, escala 100% (tamanho real), sem margens e sem cabeçalhos e rodapés.</p>
+            <button type="submit">Imprimir</button>
+        </form>
+    </dialog>
+    <section id="etiquetasImpressao" aria-hidden="true"></section>
     <section id="orcamentoImpressao" aria-hidden="true"></section>
 </body>
 </html>

@@ -46,3 +46,6 @@ O APK contém a interface para abrir offline. A versão web ainda depende do hos
 Com Python, Node, Playwright e Edge disponíveis, execute `python -B tests/run_all.py`. A suíte usa bancos e fotos temporários e cobre autenticação, rotas privadas, conflitos, concorrência pelo último estoque, vendas atômicas, repetição, migração, fotos, rascunhos e recuperação por backup. Se Playwright estiver fora de node_modules local, configure NODE_PATH.
 
 Build isolado para testes: `android/gradlew.bat -p android -PphotoTest=true assembleDebug`. Esse APK usa o ID `.phototest` e não substitui os dados do aplicativo original. Build release: `android/gradlew.bat -p android assembleRelease`.
+# Atualização do aplicativo Android
+
+A versão 1.3 consulta e baixa novas versões pelo servidor existente, com confirmação de instalação pelo Android. Consulte [android/ATUALIZACOES.md](android/ATUALIZACOES.md) para assinar o primeiro APK, publicar atualizações e executar os testes.

@@ -19,7 +19,7 @@ function Piso(nome, bitola, tonalidade, fotos, altura, largura, cor, textura, re
 const chavePisos = 'pisos';
 const chaveApi = 'apiUrl';
 const chaveVendas = 'vendas';
-const enderecoServidorPadrao = 'http://192.168.0.5:8000';
+const enderecoServidorPadrao = 'http://192.168.0.15:8000';
 let pisosEmMemoria = DadosSeguros.project().pisos;
 let vendasEmMemoria = DadosSeguros.project().vendas;
 let apiUrl = window.location.protocol === 'file:'
@@ -1098,10 +1098,104 @@ document.getElementById('compartilharOrcamento').onclick = async () => {
         else await baixarArquivo(new Blob([text], {type:'text/plain;charset=utf-8'}),'orcamento.txt');
     } catch (error) { if (error.name !== 'AbortError') alert('Não foi possível compartilhar.'); }
 };
+const modalEtiquetas = document.getElementById('modalEtiquetas');
+let pisoDaEtiqueta = null;
+fecharAoTocarFora(modalEtiquetas);
+
+function preencherEtiqueta(elemento, piso) {
+    const numero = valor => valor === null || valor === undefined || valor === ''
+        ? 'Não informado' : Number(valor).toLocaleString('pt-BR', { maximumFractionDigits: 3 });
+    elemento.replaceChildren();
+    const nome = document.createElement('strong');
+    nome.textContent = piso.nome || 'Piso sem nome';
+    elemento.append(nome);
+    for (const texto of [
+        `${numero(piso.altura)} × ${numero(piso.largura)}`,
+        `${piso.resistencia || 'Não informado'}`,
+        `${numero(piso.caixa)} m²`
+    ]) {
+        const linha = document.createElement('div');
+        linha.textContent = texto;
+        elemento.append(linha);
+    }
+}
+
+document.getElementById('imprimirEtiqueta').onclick = () => {
+    const piso = obterPisos().find(item => item.id === pisoSelecionadoId);
+    if (!piso) return;
+    pisoDaEtiqueta = { ...piso };
+    preencherEtiqueta(document.getElementById('previaEtiqueta'), pisoDaEtiqueta);
+    modalEtiquetas.showModal();
+};
+
+document.getElementById('etiquetasForm').onsubmit = event => {
+    event.preventDefault();
+    const quantidade = Number(document.getElementById('quantidadeEtiquetas').value);
+    const inicio = Number(document.getElementById('posicaoEtiqueta').value) - 1;
+    if (!pisoDaEtiqueta || !Number.isInteger(quantidade) || quantidade < 1 || quantidade > 1400 ||
+        !Number.isInteger(inicio) || inicio < 0 || inicio > 13) return;
+    const impressao = document.getElementById('etiquetasImpressao');
+    impressao.replaceChildren();
+    let folha;
+    for (let posicao = 0; posicao < inicio + quantidade; posicao++) {
+        if (posicao % 14 === 0) {
+            folha = document.createElement('div');
+            folha.className = 'folhaEtiquetas';
+            impressao.append(folha);
+        }
+        const etiqueta = document.createElement('div');
+        etiqueta.className = 'etiquetaPiso';
+        if (posicao >= inicio) preencherEtiqueta(etiqueta, pisoDaEtiqueta);
+        folha.append(etiqueta);
+    }
+    document.body.classList.add('imprimindoEtiquetas');
+    if (window.AndroidImprimir) window.AndroidImprimir.open(); else window.print();
+};
+window.addEventListener('afterprint', () => document.body.classList.remove('imprimindoEtiquetas'));
+
 document.getElementById('imprimirOrcamento').onclick = () => {
+    document.body.classList.remove('imprimindoEtiquetas');
     document.getElementById('orcamentoImpressao').textContent = resumoOrcamentoTexto();
     if (window.AndroidImprimir) window.AndroidImprimir.open(); else window.print();
 };
+let consultandoAtualizacao = false;
+let atualizacaoManual = false;
+function verificarAtualizacao(manual = false) {
+    if (!window.AndroidAtualizacao || consultandoAtualizacao) return;
+    const token = localStorage.getItem('apiToken') || '';
+    if (!token && !manual) return;
+    atualizacaoManual = manual;
+    consultandoAtualizacao = true;
+    document.getElementById('verificarAtualizacao').disabled = true;
+    try {
+        if (window.AndroidAtualizacao.check(apiUrl, token) === false) {
+            consultandoAtualizacao = false;
+            document.getElementById('verificarAtualizacao').disabled = false;
+        }
+    }
+    catch (error) { window.onAppUpdate('error', 'Não foi possível consultar a atualização. Tente novamente.'); }
+}
+window.onAppUpdate = (estado, mensagem) => {
+    consultandoAtualizacao = estado === 'checking' || estado === 'downloading';
+    document.getElementById('verificarAtualizacao').disabled = consultandoAtualizacao;
+    document.getElementById('statusAtualizacao').textContent = mensagem;
+    document.getElementById('statusAtualizacaoAjustes').textContent = mensagem;
+    document.getElementById('avisoAtualizacao').hidden =
+        !atualizacaoManual && estado !== 'downloading' && estado !== 'ready';
+    document.getElementById('instalarAtualizacao').hidden = estado !== 'ready';
+    document.getElementById('instalarAtualizacaoAjustes').hidden = estado !== 'ready';
+};
+if (window.AndroidAtualizacao) {
+    document.getElementById('ajustesAtualizacao').hidden = false;
+    document.getElementById('versaoInstalada').textContent = window.AndroidAtualizacao.version();
+    document.getElementById('verificarAtualizacao').onclick = () => verificarAtualizacao(true);
+    for (const id of ['instalarAtualizacao', 'instalarAtualizacaoAjustes']) {
+        document.getElementById(id).onclick = () => window.AndroidAtualizacao.install();
+    }
+    setTimeout(() => verificarAtualizacao(), 1500);
+    window.addEventListener('online', () => verificarAtualizacao());
+}
+
 const configModal = document.getElementById('modalConfiguracoes');
 fecharAoTocarFora(configModal);
 document.getElementById('abrirConfiguracoes').onclick = () => {
@@ -1120,6 +1214,7 @@ document.getElementById('configForm').onsubmit = async event => {
         if (raw) { const url = new URL(raw); if (!['http:','https:'].includes(url.protocol) || url.username || url.password || url.search || url.hash || url.pathname !== '/') throw Error('Informe somente http(s)://servidor:porta.'); }
         if (raw !== apiUrl && DadosSeguros.pending) throw Error('Sincronize ou exporte e descarte as pendências antes de trocar de servidor.');
         apiUrl = raw; localStorage.setItem(chaveApi,raw); localStorage.setItem('apiToken',document.getElementById('chaveConfig').value.trim());
+        verificarAtualizacao();
         await sincronizarPisos(); document.getElementById('resultadoConexao').textContent = DadosSeguros.status;
     } catch (error) { document.getElementById('resultadoConexao').textContent = error.message; }
 };

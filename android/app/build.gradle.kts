@@ -10,6 +10,18 @@ android {
     namespace = "br.com.calculadordepisos"
     compileSdk = 37
 
+    // Optional production signing. Credentials stay in the build environment.
+    val releaseStore = providers.environmentVariable("PISOS_KEYSTORE").orNull
+    if (releaseStore != null) {
+        signingConfigs.create("production") {
+            storeFile = file(releaseStore)
+            storePassword = providers.environmentVariable("PISOS_STORE_PASSWORD").get()
+            keyAlias = providers.environmentVariable("PISOS_KEY_ALIAS").get()
+            keyPassword = providers.environmentVariable("PISOS_KEY_PASSWORD").get()
+        }
+        buildTypes.getByName("release").signingConfig = signingConfigs.getByName("production")
+    }
+
     buildTypes {
         getByName("debug") {
             if (providers.gradleProperty("photoTest").orNull == "true") {
@@ -22,8 +34,8 @@ android {
         applicationId = "br.com.calculadordepisos"
         minSdk = 23
         targetSdk = 35
-        versionCode = 3
-        versionName = "1.2"
+        versionCode = 4
+        versionName = "1.3"
     }
 
 }

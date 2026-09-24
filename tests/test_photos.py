@@ -50,6 +50,40 @@ class ServerTests(unittest.TestCase):
             self.assertEqual(self.request(path,method='HEAD')[0],404,path)
         self.assertEqual(self.request('/api/health',token='')[0],200)
         self.assertEqual(self.request('/api/pisos',[])[0],400)
+    def test_app_update_publication_and_download(self):
+        import hashlib
+        self.assertEqual(self.request('/api/app/version', token='')[0], 401)
+        self.assertEqual(self.request('/api/app/version')[0], 204)
+        directory = server.ROOT / 'updates'
+        directory.mkdir()
+        apk = b'isolated-apk-fixture' * 10000
+        digest = hashlib.sha256(apk).hexdigest()
+        (directory / (digest + '.apk')).write_bytes(apk)
+        manifest = dict(versionCode=4, versionName='1.3', packageName='br.com.calculadordepisos',
+                        sha256=digest, size=len(apk))
+        (directory / 'latest.json').write_text(json.dumps(manifest), encoding='utf-8')
+        status, body, headers = self.request('/api/app/version')
+        self.assertEqual(status, 200)
+        self.assertEqual(headers['Cache-Control'], 'no-store')
+        release = json.loads(body)
+        self.assertEqual(release['versionCode'], 4)
+        self.assertEqual(self.request(release['apkPath'], token='')[0], 401)
+        status, body, headers = self.request(release['apkPath'])
+        self.assertEqual((status, body), (200, apk))
+        self.assertEqual(headers['Content-Type'], 'application/vnd.android.package-archive')
+        self.assertEqual(self.request(release['apkPath'], method='HEAD')[1], b'')
+        self.assertEqual(self.request('/updates/latest.json')[0], 404)
+        self.assertEqual(self.request('/api/app/apk/%2e%2e/latest.json')[0], 404)
+        self.assertEqual(self.request('/api/app/apk/' + '0' * 64 + '.apk')[0], 404)
+        (directory / 'latest.json').write_text('{broken', encoding='utf-8')
+        self.assertEqual(self.request('/api/app/version')[0], 503)
+        manifest['sha256'] = '../escape'
+        (directory / 'latest.json').write_text(json.dumps(manifest), encoding='utf-8')
+        self.assertEqual(self.request('/api/app/version')[0], 503)
+        manifest['sha256'] = digest
+        manifest['size'] += 1
+        (directory / 'latest.json').write_text(json.dumps(manifest), encoding='utf-8')
+        self.assertEqual(self.request('/api/app/version')[0], 503)
     def test_lotes_preserve_independent_stock(self):
         self.create()
         second = dict(piso('lot-2', stock=3), modeloId='tile', bitola='2', tonalidade='5')

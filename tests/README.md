@@ -39,3 +39,9 @@ Verified on the Android 16 device: light background/status/navigation areas matc
 
 ## UI polish follow-up
 Unified 48px controls, inline SVG icons, accessible theme labels/focus rings, responsive action groups, explicit dialog close buttons, gallery picker button, and improved dark-mode muted text. Browser checks passed on all four screens at 320/360/768/1200px without horizontal overflow; mobile header controls measured 48px each. Photo regression and gallery-picker checks passed. Release build/vital lint passed and APK assets match the web sources.
+# Atualizador Android 1.3 — 24/09/2026
+
+- `tests/run_all.py`: 12 testes Python e cinco suítes de navegador passaram, usando dados isolados. Incluem autenticação do endpoint de versão/download, publicação ausente/inválida, download em blocos, publicação atômica e rejeição de versão antiga ou certificado diferente.
+- `updates.browser.cjs`: ponte Android simulada; consulta ao abrir, chave de acesso, falha offline, progresso, verificação manual e botões de instalação em tela móvel.
+- `assembleRelease lintRelease`: passaram. APK 1.3 (código 4) gerado sem assinatura, pois as credenciais de produção não estão configuradas. A chave e o APK de referência existentes foram preservados.
+- Nenhum aparelho estava conectado. Download nativo, permissão e atualização instalada com preservação de dados ainda precisam de aceitação em aparelho com APK assinado. Procedimento em `android/ATUALIZACOES.md`.

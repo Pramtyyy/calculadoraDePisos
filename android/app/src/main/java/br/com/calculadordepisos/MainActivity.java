@@ -44,6 +44,7 @@ public class MainActivity extends Activity {
     private static final int REQUEST_CAMERA = 1003;
     private static final int REQUEST_CAMERA_PERMISSION = 1004;
     private WebView webView;
+    private AppUpdater appUpdater;
     private FrameLayout root;
     private ValueCallback<Uri[]> filePathCallback;
     private Uri cameraOutputUri;
@@ -230,6 +231,9 @@ public class MainActivity extends Activity {
             }
         }, "AndroidSalvarArquivo");
 
+        appUpdater = new AppUpdater(this, webView);
+        webView.addJavascriptInterface(appUpdater, "AndroidAtualizacao");
+
         webView.setWebChromeClient(new WebChromeClient() {
             @Override
             public boolean onShowFileChooser(
@@ -275,6 +279,9 @@ public class MainActivity extends Activity {
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         switch (requestCode) {
+            case AppUpdater.REQUEST_INSTALL_PERMISSION:
+                appUpdater.permissionReturned();
+                break;
             case REQUEST_EXPORT: {
                 final java.io.File file = exportFile; exportFile = null;
                 if (file == null) break;
@@ -324,6 +331,11 @@ public class MainActivity extends Activity {
     protected void onSaveInstanceState(Bundle state) {
         if (cameraOutputUri != null) state.putString("cameraOutputUri", cameraOutputUri.toString());
         super.onSaveInstanceState(state);
+    }
+
+    @Override protected void onDestroy() {
+        if (appUpdater != null) appUpdater.close();
+        super.onDestroy();
     }
 
     private Uri[] getUrisFromIntent(Intent data) {

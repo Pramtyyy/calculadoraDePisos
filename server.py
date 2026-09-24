@@ -14,6 +14,7 @@ import math
 import os
 import re
 import secrets
+import shutil
 import sqlite3
 import uuid
 import zipfile
@@ -27,6 +28,27 @@ AUTH_TOKEN = os.environ.get('PISOS_API_TOKEN', '')
 PUBLIC_FILES = {'/': 'index.html', '/index.html': 'index.html', '/style.css': 'style.css',
                 '/logica.js': 'logica.js', '/sincronizacao.js': 'sincronizacao.js'}
 PHOTO_NAME = re.compile(r'^[a-f0-9]{32}\.(jpg|png|webp)$')
+APK_NAME = re.compile(r'^[a-f0-9]{64}\.apk$')
+
+def versao_app():
+    """Read the atomically published release pointer; APK names are immutable hashes."""
+    manifest = ROOT / 'updates' / 'latest.json'
+    if not manifest.exists():
+        return None
+    data = json.loads(manifest.read_text(encoding='utf-8'))
+    if (not isinstance(data, dict) or type(data.get('versionCode')) is not int
+            or data['versionCode'] < 1 or not isinstance(data.get('versionName'), str)
+            or data.get('packageName') != 'br.com.calculadordepisos'
+            or not isinstance(data.get('sha256'), str)
+            or not re.fullmatch(r'[a-f0-9]{64}', data['sha256'])
+            or type(data.get('size')) is not int or not 0 < data['size'] <= 256 * 1024 * 1024):
+        raise ValueError('Publicação de atualização inválida')
+    apk = ROOT / 'updates' / (data['sha256'] + '.apk')
+    if not apk.is_file() or apk.stat().st_size != data['size']:
+        raise ValueError('APK publicado indisponível')
+    return {key: data[key] for key in ('versionCode', 'versionName', 'packageName', 'sha256', 'size')} | {
+        'apkPath': '/api/app/apk/' + apk.name
+    }
 
 class Conflict(ValueError):
     pass
@@ -331,6 +353,26 @@ class AppHandler(SimpleHTTPRequestHandler):
             if file.is_file(): self.enviar_bytes(200,file.read_bytes(),self.guess_type(str(file)));return
         if path=='/api/health': self.enviar_json(200,{'ok':True,'apiVersion':2});return
         if not self.autorizado(): self.enviar_json(401,{'erro':'Informe a chave de acesso em Configurações.'});return
+        if path == '/api/app/version':
+            try:
+                release = versao_app()
+                if release is None: self.enviar_bytes(204, b'', 'application/json')
+                else: self.enviar_json(200, release)
+            except (ValueError, OSError, KeyError, TypeError):
+                self.enviar_json(503, {'erro': 'Atualização indisponível. Verifique a publicação no servidor.'})
+            return
+        if path.startswith('/api/app/apk/') and APK_NAME.fullmatch(path[13:]):
+            apk = ROOT / 'updates' / path[13:]
+            try:
+                with apk.open('rb') as source:
+                    self.send_response(200)
+                    self.send_header('Content-Type', 'application/vnd.android.package-archive')
+                    self.send_header('Content-Length', str(os.fstat(source.fileno()).st_size))
+                    self.end_headers()
+                    if self.command != 'HEAD': shutil.copyfileobj(source, self.wfile, 65536)
+            except FileNotFoundError: self.enviar_json(404, {'erro': 'APK não encontrado'})
+            except (ConnectionError, TimeoutError): pass
+            return
         if path=='/api/state': self.enviar_json(200,ler_estado());return
         if path=='/api/pisos': self.enviar_json(200,ler_pisos());return
         if path=='/api/vendas': self.enviar_json(200,ler_vendas());return
