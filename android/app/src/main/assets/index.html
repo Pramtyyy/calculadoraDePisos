@@ -59,7 +59,7 @@
                 <label for="dataFinalRelatorio">Até:</label>
                 <input type="date" id="dataFinalRelatorio">
                 <label for="buscaRelatorio">Pesquisar:</label>
-                <input type="search" id="buscaRelatorio" placeholder="Pesquisar por produto">
+                <input type="search" id="buscaRelatorio" placeholder="Pesquisar por produto ou cliente">
             </div>
             <div class="resumoRelatorio">
                 <strong id="totalVendasRelatorio">0 vendas</strong>
@@ -256,6 +256,8 @@
     <dialog id="modalConfirmacaoVenda">
         <button type="button" class="fecharModal botaoSecundario" data-fechar="modalConfirmacaoVenda" aria-label="Fechar"><svg class="icone " viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M6 6l12 12M6 18L18 6"/></svg></button>
         <h2>Confirmar venda</h2>
+        <label for="clienteVenda">Nome do cliente (opcional)</label>
+        <input id="clienteVenda" maxlength="200" autocomplete="name">
         <p>Confirmar a venda e baixar os itens do estoque?</p>
         <div class="acoesDialogo">
 <button type="button" id="cancelarConfirmacaoVenda" class="botaoSecundario">Cancelar</button>

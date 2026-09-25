@@ -47,10 +47,13 @@ async function remote(){return (await fetch(base+'/api/state',{headers:{Authoriz
  console.log('PASS saved quotes modal opens selected quote in editor');
 
  await context.route('**/api/**',r=>r.abort());
- await page.evaluate(()=>mostrarTela('orcamento'));await page.locator('#abrirOrcamento').click();await page.locator('#finalizarOrcamento').click();await page.locator('#confirmarVenda').click();
+ await page.evaluate(()=>mostrarTela('orcamento'));await page.locator('#abrirOrcamento').click();await page.locator('#finalizarOrcamento').click();
+ assert.equal(await page.locator('#clienteVenda').inputValue(),'Cliente teste');
+ await page.locator('#clienteVenda').fill('Maria <Silva>');await page.locator('#confirmarVenda').click();
  await page.waitForFunction(()=>DadosSeguros.pending===1);await page.reload();
  await page.waitForFunction(()=>DadosSeguros.pending===1);
  assert.equal(await page.evaluate(()=>vendasEmMemoria.filter(v=>v.pendente).length),1);
+ assert.equal(await page.evaluate(()=>vendasEmMemoria.find(v=>v.pendente).cliente),'Maria <Silva>');
  assert.equal(await page.evaluate(()=>obterPisos().at(-1).estoque),9);
  await page.evaluate(()=>mostrarTela('cadastro'));await page.waitForFunction(()=>[...document.querySelectorAll('#listaPisosCadastro img')].every(i=>i.complete&&i.naturalWidth>0));
  console.log('PASS offline sale + stock retained together across reload');

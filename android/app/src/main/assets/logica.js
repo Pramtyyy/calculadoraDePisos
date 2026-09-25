@@ -218,6 +218,7 @@ fecharAoTocarFora(modalConfirmacaoVenda, function () {
 });
 
 function pedirConfirmacaoVenda() {
+    document.getElementById('clienteVenda').value = document.getElementById('clienteOrcamento').value;
     return new Promise(function (resolver) {
         resolverConfirmacaoVenda = resolver;
         modalConfirmacaoVenda.showModal();
@@ -401,7 +402,7 @@ function exibirRelatorio() {
     const busca = buscaRelatorio.value.trim().toLocaleLowerCase();
     const vendasFiltradas = vendasEmMemoria.filter(function (venda) {
         const data = venda.data.slice(0, 10);
-        const texto = `${data} ${venda.itens.map(function (item) { return item.nome; }).join(' ')}`.toLocaleLowerCase();
+        const texto = `${data} ${venda.cliente || ''} ${venda.itens.map(function (item) { return item.nome; }).join(' ')}`.toLocaleLowerCase();
         return (!inicio || data >= inicio) && (!fim || data <= fim) && (!busca || texto.includes(busca));
     });
     listaRelatorioVendas.innerHTML = '';
@@ -411,7 +412,7 @@ function exibirRelatorio() {
         if (!venda.cancelada) total += Number(venda.total) || 0;
         const linha = document.createElement('li');
         linha.className = 'itemRelatorio';
-        linha.textContent = `${new Date(venda.data).toLocaleString('pt-BR')} - ${venda.itens.map(function (item) {
+        linha.textContent = `${new Date(venda.data).toLocaleString('pt-BR')} - ${venda.cliente || 'Cliente não informado'} - ${venda.itens.map(function (item) {
             return `${item.nome} (${item.quantidade} ${item.unidade})`;
         }).join(', ')} - ${formatarMoeda(venda.total)}`;
         if (venda.cancelada) { linha.append(' · CANCELADA'); }
@@ -423,6 +424,10 @@ function exibirRelatorio() {
             }); linha.appendChild(cancelar);
         }
         if (venda.pendente) linha.append(' · Aguardando sincronização');
+        const imprimir = document.createElement('button');
+        imprimir.type = 'button'; imprimir.className = 'botaoSecundario'; imprimir.textContent = 'Imprimir venda';
+        imprimir.addEventListener('click', () => imprimirVenda(venda));
+        linha.appendChild(imprimir);
         listaRelatorioVendas.appendChild(linha);
     });
     totalVendasRelatorio.textContent = `${vendasFiltradas.length} ${vendasFiltradas.length === 1 ? 'venda' : 'vendas'}`;
@@ -835,7 +840,7 @@ finalizarOrcamento.addEventListener('click', async function () {
             if (needed[piso.id] > obterTotalPecas(piso)) throw Error('Estoque insuficiente: ' + piso.nome);
         }
         const operation = {id:DadosSeguros.id(), tipo:'venda', data:new Date().toISOString(),
-            cliente:document.getElementById('clienteOrcamento').value.trim(), itens:DadosSeguros.copy(itensOrcamento)};
+            cliente:document.getElementById('clienteVenda').value.trim(), itens:DadosSeguros.copy(itensOrcamento)};
         DadosSeguros.enqueue([operation], true);
         orcamentoAtualId = null;
         itensOrcamento = []; salvarRascunho(); exibirOrcamento(); modalOrcamento.close();
@@ -1174,6 +1179,21 @@ function verificarAtualizacao(manual = false) {
         }
     }
     catch (error) { window.onAppUpdate('error', 'Não foi possível consultar a atualização. Tente novamente.'); }
+}
+function imprimirVenda(venda) {
+    document.body.classList.remove('imprimindoEtiquetas');
+    document.getElementById('orcamentoImpressao').textContent = [
+        'VENDA — Calculador de Pisos',
+        'Venda: ' + venda.id,
+        'Data: ' + new Date(venda.data).toLocaleString('pt-BR'),
+        'Cliente: ' + (venda.cliente || 'Não informado'),
+        venda.cancelada ? 'CANCELADA' : '',
+        venda.pendente ? 'Aguardando sincronização' : '',
+        '',
+        ...venda.itens.map(i => `${i.nome} — Bitola: ${i.bitola ?? '-'} / Tonalidade: ${i.tonalidade ?? '-'}\n${i.quantidade} ${i.unidade}${i.metros != null ? ' — ' + Number(i.metros).toFixed(2) + ' m²' : ''} — ${formatarMoeda(i.total)}`),
+        '', 'Total: ' + formatarMoeda(venda.total)
+    ].join('\n');
+    if (window.AndroidImprimir) window.AndroidImprimir.open(); else window.print();
 }
 window.onAppUpdate = (estado, mensagem) => {
     consultandoAtualizacao = estado === 'checking' || estado === 'downloading';
